@@ -65,7 +65,7 @@ namespace DurableTask.Core.Tracing
         /// <summary>
         /// Gets whether trace logs are enabled
         /// </summary>
-        public bool IsTraceEnabled => IsEnabled(EventLevel.Verbose, Keywords.Diagnostics);
+        public bool IsTraceEnabled => false;
 
         /// <summary>
         /// Gets whether debug logs are enabled
@@ -168,7 +168,7 @@ namespace DurableTask.Core.Tracing
         /// <summary>
         /// Log debug event for the supplied parameters
         /// </summary>
-        [Event(DebugEventId, Level = EventLevel.Verbose, Keywords = Keywords.Diagnostics, Version = 3)]
+        [NonEvent]
         public void Debug(string source, string instanceId, string executionId, string sessionId, string message, string info, string eventType)
         {
             if (IsDebugEnabled)

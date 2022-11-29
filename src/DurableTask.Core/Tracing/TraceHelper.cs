@@ -31,8 +31,6 @@ namespace DurableTask.Core.Tracing
         /// </summary>
         public static void Trace(TraceEventType eventLevel, string eventType, Func<string> generateMessage)
         {
-            ExceptionHandlingWrapper(
-                () => DefaultEventSource.Log.TraceEvent(eventLevel, Source, string.Empty, string.Empty, string.Empty, generateMessage(), eventType));
         }
 
         /// <summary>
@@ -40,8 +38,6 @@ namespace DurableTask.Core.Tracing
         /// </summary>
         public static void Trace(TraceEventType eventLevel, string eventType, string format, params object[] args)
         {
-            ExceptionHandlingWrapper(
-                () => DefaultEventSource.Log.TraceEvent(eventLevel, Source, string.Empty, string.Empty, string.Empty, FormatString(format, args), eventType));
         }
 
         /// <summary>
@@ -49,8 +45,6 @@ namespace DurableTask.Core.Tracing
         /// </summary>
         public static void TraceSession(TraceEventType eventLevel, string eventType, string sessionId, Func<string> generateMessage)
         {
-            ExceptionHandlingWrapper(
-                () => DefaultEventSource.Log.TraceEvent(eventLevel, Source, string.Empty, string.Empty, sessionId, generateMessage(), eventType));
         }
 
         /// <summary>
@@ -58,8 +52,6 @@ namespace DurableTask.Core.Tracing
         /// </summary>
         public static void TraceSession(TraceEventType eventLevel, string eventType, string sessionId, string format, params object[] args)
         {
-            ExceptionHandlingWrapper(
-                () => DefaultEventSource.Log.TraceEvent(eventLevel, Source, string.Empty, string.Empty, sessionId, FormatString(format, args), eventType));
         }
 
         /// <summary>
@@ -68,15 +60,6 @@ namespace DurableTask.Core.Tracing
         public static void TraceInstance(TraceEventType eventLevel, string eventType, OrchestrationInstance orchestrationInstance,
             string format, params object[] args)
         {
-            ExceptionHandlingWrapper(
-                () => DefaultEventSource.Log.TraceEvent(
-                    eventLevel,
-                    Source,
-                    orchestrationInstance == null ? string.Empty : orchestrationInstance.InstanceId,
-                    orchestrationInstance == null ? string.Empty : orchestrationInstance.ExecutionId,
-                    string.Empty,
-                    FormatString(format, args),
-                    eventType));
         }
 
         /// <summary>
@@ -85,15 +68,6 @@ namespace DurableTask.Core.Tracing
         public static void TraceInstance(TraceEventType eventLevel, string eventType, OrchestrationInstance orchestrationInstance,
             Func<string> generateMessage)
         {
-            ExceptionHandlingWrapper(
-                () => DefaultEventSource.Log.TraceEvent(
-                    eventLevel,
-                    Source,
-                    orchestrationInstance == null ? string.Empty : orchestrationInstance.InstanceId,
-                    orchestrationInstance == null ? string.Empty : orchestrationInstance.ExecutionId,
-                    string.Empty,
-                    generateMessage(),
-                    eventType));
         }
 
         /// <summary>
