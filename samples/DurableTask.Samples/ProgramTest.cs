@@ -19,7 +19,6 @@ namespace DurableTask.Samples
     using System.Collections.Generic;
     using System.Configuration;
     using System.Diagnostics.Tracing;
-    using System.Net.NetworkInformation;
     using System.Threading.Tasks;
     using DurableTask.AzureStorage;
     using DurableTask.Core;
@@ -32,16 +31,16 @@ namespace DurableTask.Samples
         static readonly Options ArgumentOptions = new Options();
         static ObservableEventListener eventListener;
         
-        static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, string input)
+        static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, MonitoringInput input, int i)
         {
             string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
-            Console.WriteLine($"Creating new orchestration. Instance id: {instanceId}");
+            instanceId += $"_{i}";
+            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} with input {input}");
 
             //creating a new instance
-            var instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, input);
-            Console.WriteLine($"InstanceId {instanceId}, created with status {instance.Status}");
-
-            return instance.Result;
+            var instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, input).Result;
+            Console.WriteLine($"GenerateNewOrchestration: InstanceId {instanceId}, created with status {instance}");
+            return instance;
         }
         
         [STAThread]
@@ -63,11 +62,13 @@ namespace DurableTask.Samples
             {
                 string storageConnectionString = GetSetting("StorageConnectionString");
                 string taskHubName = ConfigurationManager.AppSettings["taskHubName"];
-        
+                
                 var settings = new AzureStorageOrchestrationServiceSettings
                 {
                     StorageAccountDetails = new StorageAccountDetails { ConnectionString = storageConnectionString },
                     TaskHubName = taskHubName,
+                    MaxConcurrentTaskActivityWorkItems = 101,
+                    MaxConcurrentTaskOrchestrationWorkItems = 12
                 };
         
                 var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
@@ -98,23 +99,24 @@ namespace DurableTask.Samples
                 
                 Task worker = taskHubWorker.StartAsync();
                 int shouldStop = 0;
-                
                 int i = 0;
                 //generating new instances of orchestration 
                 do
                 {
                     i = i == 1 ? 0 : 1;
                     string ping = pingList[i];
-                    instances.Add(GenerateNewOrchestration(taskHubClient, ping));
-                    Console.WriteLine($"Adding new orchestration with ping {ping}");
-                    System.Threading.Thread.Sleep(3000);
-                    Console.WriteLine($"MaximumConcurrentTaskOrchestrationWorkItems: {taskHubWorker.orchestrationService.MaxConcurrentTaskOrchestrationWorkItems}");
+                    
+                    var monitoringInput = new MonitoringInput
+                    {
+                        host = ping,
+                    };
+                    
+                    instances.Add(GenerateNewOrchestration(taskHubClient, monitoringInput, shouldStop));
                     shouldStop++;
                 }
                 while (shouldStop < 5);
 
-                System.Threading.Thread.Sleep(100000);
-                
+                System.Threading.Thread.Sleep(50000);
                 // waiting for all the workers
                 try
                 {
@@ -134,7 +136,8 @@ namespace DurableTask.Samples
                 }
 
                 Console.WriteLine("Execution is over");
-                System.Threading.Thread.Sleep(10000);
+                Console.WriteLine("Press any key to quit.");
+                Console.ReadLine();
             }
         }
         

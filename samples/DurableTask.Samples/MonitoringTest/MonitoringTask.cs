@@ -6,22 +6,29 @@ namespace DurableTask.Samples.MonitoringTest
 {
     using System;
     using System.Net.NetworkInformation;
+    using System.Text;
     using System.Threading;
     using DurableTask.Core;
 
-    public class MonitoringTask : TaskActivity<string, string>
+    public sealed class MonitoringInput
     {
-        protected override string Execute(DurableTask.Core.TaskContext context, string host)
+        public string host;
+    }
+    
+    public sealed class MonitoringTask : TaskActivity<MonitoringInput, string>
+    {
+        protected override string Execute(DurableTask.Core.TaskContext context, MonitoringInput monitoringInput)
         {
             //pinging to the host described 
-            Console.WriteLine($"Pingnig to host {host}, instance {context.OrchestrationInstance}");
+            Console.WriteLine($"Execute: instance {context.OrchestrationInstance}, Thread id: '{Thread.CurrentThread.ManagedThreadId}'");
+            Console.WriteLine($"Execute: Pingnig to host {monitoringInput.host}, instance {context.OrchestrationInstance}");
             bool pingable = false;
             Ping pinger = null;
 
             try
             {
                 pinger = new Ping();
-                PingReply reply = pinger.Send(host);
+                PingReply reply = pinger.Send(monitoringInput.host);
                 pingable = reply.Status == IPStatus.Success;
             }
             catch (PingException)
@@ -35,8 +42,8 @@ namespace DurableTask.Samples.MonitoringTest
                     pinger.Dispose();
                 }
             }
-
-            System.Threading.Thread.Sleep(100);
+            
+            Console.WriteLine($"Execute: instance {context.OrchestrationInstance}, Thread id: '{Thread.CurrentThread.ManagedThreadId}' finished");
             return pingable.ToString();
         }
     }
