@@ -11,7 +11,7 @@
 //  limitations under the License.
 //  ----------------------------------------------------------------------------------
 
-// [assembly: System.Runtime.InteropServices.ComVisible(false)]
+[assembly: System.Runtime.InteropServices.ComVisible(false)]
 
 namespace DurableTask.Samples
 {
@@ -19,211 +19,239 @@ namespace DurableTask.Samples
     using System.Collections.Generic;
     using System.Configuration;
     using System.Diagnostics.Tracing;
-    using System.IO;
-    using System.Linq;
-    using System.Threading;
+    using System.Threading.Tasks;
     using DurableTask.AzureStorage;
     using DurableTask.Core;
     using DurableTask.Core.Tracing;
-    using DurableTask.Samples.AverageCalculator;
-    using DurableTask.Samples.Common.WorkItems;
-    using DurableTask.Samples.Cron;
-    using DurableTask.Samples.ErrorHandling;
-    using DurableTask.Samples.Greetings;
-    using DurableTask.Samples.Greetings2;
-    using DurableTask.Samples.Replat;
-    using DurableTask.Samples.Signal;
-    using DurableTask.Samples.SumOfSquares;
+    using DurableTask.Samples.MonitoringTest;
     using Microsoft.Practices.EnterpriseLibrary.SemanticLogging;
-    
+    using Microsoft.WindowsAzure.Storage;
+    using Microsoft.WindowsAzure.Storage.Blob;
+
     internal class Program
     {
-        // static readonly Options ArgumentOptions = new Options();
-        // static ObservableEventListener eventListener;
-        //
-        // [STAThread]
-        // static void Main(string[] args)
-        // {
-        //     eventListener = new ObservableEventListener();
-        //     eventListener.LogToConsole();
-        //     eventListener.EnableEvents(DefaultEventSource.Log, EventLevel.LogAlways);
-        //
-        //     if (CommandLine.Parser.Default.ParseArgumentsStrict(args, ArgumentOptions))
-        //     {
-        //         string storageConnectionString = GetSetting("StorageConnectionString");
-        //         string taskHubName = ConfigurationManager.AppSettings["taskHubName"];
-        //
-        //         var settings = new AzureStorageOrchestrationServiceSettings
-        //         {
-        //             StorageAccountDetails = new StorageAccountDetails { ConnectionString = storageConnectionString },
-        //             TaskHubName = taskHubName,
-        //         };
-        //
-        //         var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
-        //         var taskHubClient = new TaskHubClient(orchestrationServiceAndClient);
-        //         var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
-        //         
-        //         if (ArgumentOptions.CreateHub)
-        //         {
-        //             orchestrationServiceAndClient.CreateIfNotExistsAsync().Wait();
-        //         }
-        //
-        //         OrchestrationInstance instance = null;
-        //
-        //         if (!string.IsNullOrWhiteSpace(ArgumentOptions.StartInstance))
-        //         {
-        //             string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
-        //             Console.WriteLine($"Start Orchestration: {ArgumentOptions.StartInstance}");
-        //             switch (ArgumentOptions.StartInstance)
-        //             {
-        //                 case "Greetings":
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(GreetingsOrchestration), instanceId, null).Result;
-        //                     break;
-        //                 case "Greetings2":
-        //                     if (ArgumentOptions.Parameters == null || ArgumentOptions.Parameters.Length != 1)
-        //                     {
-        //                         throw new ArgumentException("parameters");
-        //                     }
-        //
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(GreetingsOrchestration2), instanceId, 
-        //                         int.Parse(ArgumentOptions.Parameters[0])).Result;
-        //                     break;
-        //                 case "Cron":
-        //                     // Sample Input: "0 12 * */2 Mon"
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(CronOrchestration), instanceId, 
-        //                         (ArgumentOptions.Parameters != null && ArgumentOptions.Parameters.Length > 0) ? ArgumentOptions.Parameters[0] : null).Result;
-        //                     break;
-        //                 case "Average":
-        //                     // Sample Input: "1 50 10"
-        //                     if (ArgumentOptions.Parameters == null || ArgumentOptions.Parameters.Length != 3)
-        //                     {
-        //                         throw new ArgumentException("parameters");
-        //                     }
-        //
-        //                     int[] input = ArgumentOptions.Parameters.Select(p => int.Parse(p)).ToArray();
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(AverageCalculatorOrchestration), instanceId, input).Result;
-        //                     break;
-        //                 case "ErrorHandling":
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(ErrorHandlingOrchestration), instanceId, null).Result;
-        //                     break;
-        //                 case "SumOfSquares":
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(
-        //                         "SumOfSquaresOrchestration", 
-        //                         "V1", 
-        //                         instanceId, 
-        //                         File.ReadAllText("SumofSquares\\BagOfNumbers.json"),
-        //                         new Dictionary<string, string>(1) { { "Category", "testing" } }).Result;
-        //                     break;
-        //                 case "Signal":
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(SignalOrchestration), instanceId, null).Result;
-        //                     break;
-        //                 case "SignalAndRaise":
-        //                     if (ArgumentOptions.Parameters == null || ArgumentOptions.Parameters.Length != 1)
-        //                     {
-        //                         throw new ArgumentException("parameters");
-        //                     }
-        //
-        //                     instance = taskHubClient.CreateOrchestrationInstanceWithRaisedEventAsync(typeof(SignalOrchestration), instanceId, null, ArgumentOptions.Signal, ArgumentOptions.Parameters[0]).Result;
-        //                     break;
-        //                 case "Replat":
-        //                     instance = taskHubClient.CreateOrchestrationInstanceAsync(typeof(MigrateOrchestration), instanceId,
-        //                         new MigrateOrchestrationData { SubscriptionId = "03a1cd39-47ac-4a57-9ff5-a2c2a2a76088", IsDisabled = false }).Result;
-        //                     break;
-        //                 default:
-        //                     throw new Exception("Unsupported Orchestration Name: " + ArgumentOptions.StartInstance);
-        //             }
-        //
-        //             Console.WriteLine("Workflow Instance Started: " + instance);
-        //         }
-        //         else if (!string.IsNullOrWhiteSpace(ArgumentOptions.Signal))
-        //         {
-        //             Console.WriteLine("Run RaiseEvent");
-        //
-        //             if (string.IsNullOrWhiteSpace(ArgumentOptions.InstanceId)) 
-        //             {
-        //                 throw new ArgumentException("instanceId");
-        //             }
-        //
-        //             if (ArgumentOptions.Parameters == null || ArgumentOptions.Parameters.Length != 1)
-        //             {
-        //                 throw new ArgumentException("parameters");
-        //             }
-        //
-        //             string instanceId = ArgumentOptions.InstanceId;
-        //             instance = new OrchestrationInstance { InstanceId = instanceId };
-        //             taskHubClient.RaiseEventAsync(instance, ArgumentOptions.Signal, ArgumentOptions.Parameters[0]).Wait();
-        //
-        //             Console.WriteLine("Press any key to quit.");
-        //             Console.ReadLine();
-        //         }
-        //
-        //         if (!ArgumentOptions.SkipWorker)
-        //         {
-        //             try
-        //             {
-        //                 taskHubWorker.AddTaskOrchestrations(
-        //                     typeof(GreetingsOrchestration),
-        //                     typeof(GreetingsOrchestration2), 
-        //                     typeof(CronOrchestration),
-        //                     typeof(AverageCalculatorOrchestration), 
-        //                     typeof(ErrorHandlingOrchestration), 
-        //                     typeof(SignalOrchestration),
-        //                     typeof(MigrateOrchestration),
-        //                     typeof(SumOfSquaresOrchestration)
-        //                     );
-        //
-        //                 taskHubWorker.AddTaskOrchestrations(
-        //                     new NameValueObjectCreator<TaskOrchestration>("SumOfSquaresOrchestration", "V1", typeof(SumOfSquaresOrchestration)));
-        //                 
-        //                 taskHubWorker.AddTaskActivities(
-        //                     new GetUserTask(), 
-        //                     new SendGreetingTask(), 
-        //                     new CronTask(), 
-        //                     new ComputeSumTask(), 
-        //                     new GoodTask(), 
-        //                     new BadTask(), 
-        //                     new CleanupTask(),
-        //                     new EmailTask(),
-        //                     new SumOfSquaresTask()
-        //                     );
-        //
-        //                 taskHubWorker.AddTaskActivitiesFromInterface<IManagementSqlOrchestrationTasks>(new ManagementSqlOrchestrationTasks());
-        //                 taskHubWorker.AddTaskActivitiesFromInterface<IMigrationTasks>(new MigrationTasks());
-        //
-        //                 taskHubWorker.StartAsync().Wait();
-        //
-        //                 Console.WriteLine("Waiting up to 60 seconds for completion.");
-        //
-        //                 OrchestrationState taskResult = taskHubClient.WaitForOrchestrationAsync(instance, TimeSpan.FromSeconds(60), CancellationToken.None).Result;
-        //                 Console.WriteLine($"Task done: {taskResult?.OrchestrationStatus}");
-        //
-        //                 Console.WriteLine("Press any key to quit.");
-        //                 Console.ReadLine();
-        //
-        //                 taskHubWorker.StopAsync(true).Wait();
-        //             }
-        //             catch (Exception e)
-        //             {
-        //                 // silently eat any unhandled exceptions.
-        //                 Console.WriteLine($"worker exception: {e}");
-        //             }
-        //         }
-        //         else
-        //         {
-        //             Console.WriteLine("Skip Worker");
-        //         }
-        //     }
-        // }
-        //
-        // public static string GetSetting(string name)
-        // {
-        //     string value = Environment.GetEnvironmentVariable("DurableTaskTest" + name);
-        //     if (string.IsNullOrWhiteSpace(value))
-        //     {
-        //         value = ConfigurationManager.AppSettings.Get(name);
-        //     }
-        //
-        //     return value;
-        // }
+        static readonly Options ArgumentOptions = new Options();
+        static readonly string containerName = "monitoringcontainerlogs";
+        static readonly string blobName = "LogsBlob";
+        static ObservableEventListener eventListener;
+        
+        [STAThread]
+        static async Task Main(string[] args)
+        {
+            eventListener = new ObservableEventListener();
+            eventListener.LogToConsole();
+            eventListener.EnableEvents(DefaultEventSource.Log, EventLevel.LogAlways);
+            
+            if (CommandLine.Parser.Default.ParseArgumentsStrict(args, ArgumentOptions))
+            {
+                string storageConnectionString = GetSetting("StorageConnectionString");
+                string taskHubName = ConfigurationManager.AppSettings["taskHubName"];
+                string filePath = ArgumentOptions.FilePath;
+
+                var settings = new AzureStorageOrchestrationServiceSettings
+                {
+                    StorageAccountDetails = new StorageAccountDetails { ConnectionString = storageConnectionString },
+                    TaskHubName = taskHubName,
+                    MaxConcurrentTaskActivityWorkItems = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
+                    MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems
+                };
+                
+                var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
+                
+                if (ArgumentOptions.CreateHub)
+                {
+                    try
+                    {
+                        await orchestrationServiceAndClient.DeleteAsync();
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Could not delete the orchestration. Error message: {e.Message}");
+                    }
+                    
+                    await orchestrationServiceAndClient.CreateIfNotExistsAsync();
+                }
+
+                if (!ArgumentOptions.SkipWorker)
+                {
+                    await WorkerMainTaskAsync(orchestrationServiceAndClient);
+                    
+                    //Writing to the file will happen from the process of the worker
+                    UploadFileIntoBlob(storageConnectionString, filePath);
+                }
+                else
+                {
+                    await OrchestrationsTaskAsync(orchestrationServiceAndClient, filePath);
+                }
+            }
+        }
+        
+        public static string GetSetting(string name)
+        {
+            string value = Environment.GetEnvironmentVariable("DurableTaskTest" + name);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                value = ConfigurationManager.AppSettings.Get(name);
+            }
+        
+            return value;
+        }
+
+        static void UploadFileIntoBlob(string connectionString, string filePath)
+        {
+            CloudStorageAccount storageacc = CloudStorageAccount.Parse(connectionString);
+
+            //Create Reference to Azure Blob
+            CloudBlobClient blobClient = storageacc.CreateCloudBlobClient();
+            
+            //The next 2 lines create if not exists a container
+            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
+            container.CreateIfNotExists();
+            
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
+            using (var filestream = System.IO.File.OpenRead(filePath))
+            {
+                blockBlob.UploadFromStream(filestream);
+            }
+        } 
+
+        static async Task WorkerMainTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient)
+        {
+            //generating one instance of worker
+            var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
+                    
+            taskHubWorker.AddTaskOrchestrations(
+                typeof(MonitoringOrchestration)
+            );
+                        
+            taskHubWorker.AddTaskActivities(
+                new MonitoringTask()
+            );
+                    
+            Task worker = taskHubWorker.StartAsync();
+            
+            Console.WriteLine("Press any key to stop the worker and finish the run.");
+            Console.ReadLine();
+            
+            // waiting for all the workers
+            try
+            {
+                await taskHubWorker.StopAsync(true);
+                await worker;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Worker got exception. Error message: {e.Message}");
+            }
+                    
+            Console.WriteLine("Press any to exit the program");
+            Console.ReadLine();
+            Console.WriteLine("Execution is over");
+        }
+
+        static async Task OrchestrationsTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient, string filePath)
+        {
+            Console.WriteLine("Generating new orchestrations");
+            Console.WriteLine("Press A for generating a new orchestration and D for delete one orchestration");
+            var taskHubClient = new TaskHubClient(orchestrationServiceAndClient);
+            var random = new Random();
+            
+            var instances = new List<OrchestrationInstance>();
+            
+            var hostList = new List<string>
+            {
+                "8.8.8.8", //google ping
+                "168.63.129.16" //azure ping
+            };
+
+            var pingIndex = 0;
+            ConsoleKeyInfo input;
+            do
+            {
+                input = Console.ReadKey();
+                Console.WriteLine();
+                
+                if (input.Key == ConsoleKey.A)
+                {
+                    pingIndex = AddingInstances(hostList, pingIndex, instances, taskHubClient, filePath);
+                }
+
+                if (input.Key == ConsoleKey.D)
+                {
+                    Console.WriteLine();
+                    if (instances.Count > 0)
+                    {
+                        await DeleteInstances(instances, random, taskHubClient);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Orchestration list is empty, removing nothing");
+                    }
+                }
+            }
+            while (input.Key != ConsoleKey.Q);
+            
+            //terminating all the orchestrations
+            foreach (OrchestrationInstance instance in instances)
+            {
+                await taskHubClient.TerminateInstanceAsync(instance);
+                Console.WriteLine($"Terminating instance: {instance.InstanceId}");
+            }
+        }
+
+        static int AddingInstances(List<string> hostList, int i, List<OrchestrationInstance> instances, TaskHubClient taskHubClient, string filePath)
+        {
+            Console.WriteLine("Enter number of instances to add");
+            string numberInstances = Console.ReadLine();
+
+            if (Int32.TryParse(numberInstances, out int numberOfInstancesToAdd) && numberOfInstancesToAdd > 0)
+            {
+                for (int j = 0; j < numberOfInstancesToAdd; j++)
+                {
+                    string host = hostList[i];
+                    var monitoringInput = new MonitoringInput
+                    {
+                        host = host,
+                        filePath = filePath
+                    };
+                    
+                    instances.Add(GenerateNewOrchestration(taskHubClient, monitoringInput));
+                    i = i == 1 ? 0 : 1;
+                }
+            }
+
+            return i;
+        }
+
+        static async Task DeleteInstances(List<OrchestrationInstance> instances, Random random, TaskHubClient taskHubClient)
+        {
+            Console.WriteLine("Enter number of instances to remove");
+            string numberInstances = Console.ReadLine();
+
+            if (Int32.TryParse(numberInstances, out int numberOfInstancesToAdd) && numberOfInstancesToAdd > 0 && instances.Count - numberOfInstancesToAdd >= 0)
+            {
+                for (int j = 0; j < numberOfInstancesToAdd; j++)
+                {
+                    int randomNumber = random.Next(0, instances.Count);
+                    OrchestrationInstance instanceToRemove = instances[randomNumber];
+                    Console.WriteLine($"Removing orchestration instance randomly. OrchestrationId: {instanceToRemove.InstanceId}");
+                    await taskHubClient.SuspendInstanceAsync(instanceToRemove);
+                    await taskHubClient.TerminateInstanceAsync(instanceToRemove);
+                    instances.RemoveAt(randomNumber);
+                    Console.WriteLine($"Removed orchestration instance: {instanceToRemove.InstanceId} successfully");
+                }
+            }
+        }
+
+        static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, MonitoringInput input)
+        {
+            string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
+            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} with input {input}");
+
+            //creating a new instance
+            var instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, input).Result;
+            Console.WriteLine($"GenerateNewOrchestration: InstanceId {instanceId}, created with status {instance}");
+            return instance;
+        }
     }
 }

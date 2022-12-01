@@ -23,16 +23,4 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Compile Update="Greetings\GetUserName.cs" />
-    <Compile Update="Greetings\GetUserName.Designer.cs">
-      <SubType>Form</SubType>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="SumOfSquares\BagofNumbers.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>
