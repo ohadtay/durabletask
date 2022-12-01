@@ -20,8 +20,6 @@ namespace DurableTask.Samples.MonitoringTest
                 var maxDelta = TimeSpan.FromSeconds(9);
                 var expectedDelta = maxDelta + TimeSpan.FromSeconds(1);
                 
-                await FileWriter.FileWriteAsync(input.filePath, $"Test ExecutionId '{context.OrchestrationInstance.ExecutionId}'");
-
                 if (s_LastOrchestrationTime.ContainsKey(context.OrchestrationInstance.InstanceId))
                 {
                     if (context.CurrentUtcDateTime - s_LastOrchestrationTime[context.OrchestrationInstance.InstanceId] > expectedDelta)
