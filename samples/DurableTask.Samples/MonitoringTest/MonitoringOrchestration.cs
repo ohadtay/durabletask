@@ -9,62 +9,73 @@ namespace DurableTask.Samples.MonitoringTest
     using System.Threading.Tasks;
     using DurableTask.Core;
 
+    public sealed class LastOrchestrationData
+    {
+        public bool shouldVerify;
+        public DateTime? lastTimeOperationEnded;
+    }
+    
     public class MonitoringOrchestration : TaskOrchestration<string,MonitoringInput>
     {
-        static Dictionary<string, DateTime> s_LastOrchestrationTime = new Dictionary<string, DateTime>();
+        static Dictionary<string, LastOrchestrationData> s_LastOrchestrationFinishedTime = new Dictionary<string, LastOrchestrationData>();
         
         public override async Task<string> RunTask(OrchestrationContext context, MonitoringInput input)
         {
             try
             {
-                var maxDelta = TimeSpan.FromSeconds(9);
-                var expectedDelta = maxDelta + TimeSpan.FromSeconds(1);
+                var instanceId = context.OrchestrationInstance.InstanceId;
                 
-                if (s_LastOrchestrationTime.ContainsKey(context.OrchestrationInstance.InstanceId))
+                var taskDedicatedTimeSpan = !s_LastOrchestrationFinishedTime.ContainsKey(instanceId)
+                    ? TimeSpan.FromSeconds(10) 
+                    : TimeSpan.FromSeconds(10) - (context.CurrentUtcDateTime - (s_LastOrchestrationFinishedTime[instanceId].lastTimeOperationEnded ?? context.CurrentUtcDateTime));
+                
+                Console.WriteLine($"Instance: '{context.OrchestrationInstance}' taskDedicatedTimeSpan: '{taskDedicatedTimeSpan}'");
+                
+                // var workerDedicatedTimeSpan = TimeSpan.FromSeconds(10);
+
+                // await VerifyWorkerTime(context, input, workerDedicatedTimeSpan); // checks if we manage to pick the orchestration on time (worker check)
+
+                if (!s_LastOrchestrationFinishedTime.ContainsKey(instanceId) || s_LastOrchestrationFinishedTime[instanceId].shouldVerify)
                 {
-                    if (context.CurrentUtcDateTime - s_LastOrchestrationTime[context.OrchestrationInstance.InstanceId] > expectedDelta)
+                    await FileWriter.FileWriteAsync(input.filePath, $"Orchestration id '{instanceId}', start time contextCurrentTime: '{context.CurrentUtcDateTime}'");
+                    if (!s_LastOrchestrationFinishedTime.ContainsKey(instanceId))
                     {
-                        await FileWriter.FileWriteAsync(input.filePath, $"$$ALERT RunTask: OrchestrationId: {context.OrchestrationInstance.InstanceId} did not manage to run at {expectedDelta} between runs");
+                        s_LastOrchestrationFinishedTime.Add(instanceId, new LastOrchestrationData()
+                        {
+                            shouldVerify = false,
+                            lastTimeOperationEnded = null
+                        });
                     }
-                    
-                    s_LastOrchestrationTime[context.OrchestrationInstance.InstanceId] = context.CurrentUtcDateTime;
+                    else
+                    {
+                        s_LastOrchestrationFinishedTime[instanceId].shouldVerify =  false;
+                    }
                 }
-                else
-                {
-                    s_LastOrchestrationTime.Add(context.OrchestrationInstance.InstanceId, context.CurrentUtcDateTime);
-                }
-                
-                Console.WriteLine($"RunTask: Pinging to host {input.host}, instance {context.OrchestrationInstance}, timeStamp:{context.CurrentUtcDateTime}");
-                DateTime startTime = context.CurrentUtcDateTime;
-                Console.WriteLine($"RunTask: Operation started at {startTime}, instance {context.OrchestrationInstance}");
-                
-                Task timer = context.CreateTimer(
-                    context.CurrentUtcDateTime.Add(maxDelta),
+
+                var output = context.ScheduleTask<string>(typeof(MonitoringTask), input);
+                Task timer = context.CreateTimer(context.CurrentUtcDateTime.Add(taskDedicatedTimeSpan),
                     "timer1");
 
-                Task<string> output = context.ScheduleTask<string>(typeof(MonitoringTask), input);
-
                 await Task.WhenAll(timer);
+                
+                // Checking if we manage to complete the orchestration on time.
+                await FileWriter.FileWriteAsync(input.filePath, $"Orchestration id '{instanceId}', finish time contextCurrentTime: '{context.CurrentUtcDateTime}'");
+                s_LastOrchestrationFinishedTime[instanceId].shouldVerify = true;
+                s_LastOrchestrationFinishedTime[instanceId].lastTimeOperationEnded = context.CurrentUtcDateTime;
 
                 if (!output.IsCompleted)
                 {
                     // request timed out, do some compensating action
                     await FileWriter.FileWriteAsync(input.filePath, $"RunTask: Timer got timed out and the task did not complete. instance {context.OrchestrationInstance}");
-                    Console.WriteLine();
                 }
                 else
                 {
                     // orchestration completion
                     Console.WriteLine($"RunTask: Pinging to host {input}, result {output.Result}, instance {context.OrchestrationInstance}");
                 }
-
-                DateTime endTime = context.CurrentUtcDateTime;
-                bool isBigger = (endTime - startTime) > maxDelta;
-                Console.WriteLine($"RunTask: Operation ended at {endTime}, deltaIsBiggerThanNeeded: '{isBigger}', instance {context.OrchestrationInstance}");
             }
             catch (Exception e)
             {
-                await FileWriter.FileWriteAsync(input.filePath, $"RunTask: An exception occured {e.Message}");
                 Console.WriteLine($"RunTask: Error occured {e.Message}");
             }
             finally
@@ -74,5 +85,43 @@ namespace DurableTask.Samples.MonitoringTest
 
             return null;
         }
+
+        // static async Task VerifyWorkerTime(OrchestrationContext context, MonitoringInput input, TimeSpan workerDedicatedTimeSpan)
+        // {
+        //     if (s_LastOrchestrationFinishedTime.ContainsKey(context.OrchestrationInstance.InstanceId))
+        //     {
+        //         if (s_LastOrchestrationFinishedTime[context.OrchestrationInstance.InstanceId].shouldVerfiy == false)
+        //         {
+        //             return;
+        //         }
+        //         
+        //         s_LastOrchestrationFinishedTime[context.OrchestrationInstance.InstanceId].shouldVerfiy = false;
+        //
+        //         var instanceId = context.OrchestrationInstance.InstanceId;
+        //         // var workerPickingTime = context.CurrentUtcDateTime - s_LastOrchestrationFinishedTime[instanceId].operationEndedDateTime;
+        //         //
+        //         // if (workerPickingTime > workerDedicatedTimeSpan)
+        //         // {
+        //         //     await FileWriter.FileWriteAsync(input.filePath, $"$$ALERT RunTask: OrchestrationId: worker didn't manage to take orchestration {instanceId} on dedicated time: {workerDedicatedTimeSpan}");
+        //         //     s_LastOrchestrationFinishedTime[instanceId].numberOfWorkerFailures++;
+        //         // }
+        //
+        //         // var numberOfFailures = s_LastOrchestrationFinishedTime[instanceId].numberOfWorkerFailures;
+        //         // var numberOfRuns = s_LastOrchestrationFinishedTime[instanceId].numberOfRuns;
+        //         // var numberOfTaskFailures = s_LastOrchestrationFinishedTime[instanceId].numberOfTaskFailures;
+        //         
+        //         // await FileWriter.FileWriteAsync(input.filePath, $"Orchestration id '{instanceId}', number of worker failures: '{numberOfFailures}', number of task failures: '{numberOfTaskFailures}', total runs for this orchestration '{numberOfRuns}', contextCurrentTime: '{context.CurrentUtcDateTime}'");
+        //     }
+        //     else
+        //     {
+        //         s_LastOrchestrationFinishedTime[context.OrchestrationInstance.InstanceId] = new OrchestrationInformation()
+        //         {
+        //             // numberOfWorkerFailures = 0,
+        //             shouldVerfiy = false,
+        //             // numberOfTaskFailures = 0,
+        //             // numberOfRuns = 0
+        //         };
+        //     }
+        // }
     }
 }

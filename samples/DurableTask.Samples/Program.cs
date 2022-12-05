@@ -62,13 +62,21 @@ namespace DurableTask.Samples
                 {
                     try
                     {
+                        Console.WriteLine("Deleting all storage information");
+                        // Delete all Azure Storage tables, blobs, and queues in the task hub
                         await orchestrationServiceAndClient.DeleteAsync();
+
+                        // Wait for a minute since Azure Storage won't let us immediately
+                        // recreate resources with the same names as before.
+                        await Task.Delay(TimeSpan.FromMinutes(1));
+                        Console.WriteLine("Finished deleting storage information");
                     }
                     catch (Exception e)
                     {
                         Console.WriteLine($"Could not delete the orchestration. Error message: {e.Message}");
                     }
                     
+                    // I want to throw exception if we do not succeed
                     await orchestrationServiceAndClient.CreateIfNotExistsAsync();
                 }
 
