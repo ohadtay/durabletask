@@ -49,3 +49,9 @@ Thumbs.db
 # Publish Web output #
 ######################
 PublishProfiles/
+.idea/.idea.DurableTask/.idea/.gitignore
+.idea/.idea.DurableTask/.idea/.name
+.idea/.idea.DurableTask/.idea/encodings.xml
+.idea/.idea.DurableTask/.idea/indexLayout.xml
+.idea/.idea.DurableTask/.idea/vcs.xml
+samples/DurableTask.Samples/App.config

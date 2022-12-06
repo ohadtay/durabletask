@@ -25,14 +25,10 @@ namespace DurableTask.Samples
     using DurableTask.Core.Tracing;
     using DurableTask.Samples.MonitoringTest;
     using Microsoft.Practices.EnterpriseLibrary.SemanticLogging;
-    using Microsoft.WindowsAzure.Storage;
-    using Microsoft.WindowsAzure.Storage.Blob;
 
     internal class Program
     {
         static readonly Options ArgumentOptions = new Options();
-        static readonly string containerName = "monitoringcontainerlogs";
-        static readonly string blobName = "LogsBlob";
         static ObservableEventListener eventListener;
         
         [STAThread]
@@ -44,7 +40,7 @@ namespace DurableTask.Samples
             
             if (CommandLine.Parser.Default.ParseArgumentsStrict(args, ArgumentOptions))
             {
-                string storageConnectionString = GetSetting("StorageConnectionString");
+                string storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
                 string taskHubName = ConfigurationManager.AppSettings["taskHubName"];
                 string filePath = ArgumentOptions.FilePath;
 
@@ -53,7 +49,9 @@ namespace DurableTask.Samples
                     StorageAccountDetails = new StorageAccountDetails { ConnectionString = storageConnectionString },
                     TaskHubName = taskHubName,
                     MaxConcurrentTaskActivityWorkItems = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
-                    MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems
+                    MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems,
+                    MaxQueuePollingInterval = TimeSpan.FromSeconds(5),
+                    PartitionCount = 16
                 };
                 
                 var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
@@ -85,7 +83,7 @@ namespace DurableTask.Samples
                     await WorkerMainTaskAsync(orchestrationServiceAndClient);
                     
                     //Writing to the file will happen from the process of the worker
-                    UploadFileIntoBlob(storageConnectionString, filePath);
+                    // UploadFileIntoBlob(storageConnectionString, filePath);
                 }
                 else
                 {
@@ -93,50 +91,26 @@ namespace DurableTask.Samples
                 }
             }
         }
-        
-        public static string GetSetting(string name)
-        {
-            string value = Environment.GetEnvironmentVariable("DurableTaskTest" + name);
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                value = ConfigurationManager.AppSettings.Get(name);
-            }
-        
-            return value;
-        }
-
-        static void UploadFileIntoBlob(string connectionString, string filePath)
-        {
-            CloudStorageAccount storageacc = CloudStorageAccount.Parse(connectionString);
-
-            //Create Reference to Azure Blob
-            CloudBlobClient blobClient = storageacc.CreateCloudBlobClient();
-            
-            //The next 2 lines create if not exists a container
-            CloudBlobContainer container = blobClient.GetContainerReference(containerName);
-            container.CreateIfNotExists();
-            
-            CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
-            using (var filestream = System.IO.File.OpenRead(filePath))
-            {
-                blockBlob.UploadFromStream(filestream);
-            }
-        } 
 
         static async Task WorkerMainTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient)
         {
-            //generating one instance of worker
-            var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
+            var workersList = new List<(Task, TaskHubWorker)>(ArgumentOptions.NumberOfWorkers);
+            for (int i = 0; i < ArgumentOptions.NumberOfWorkers; i++)
+            {
+                //generating one instance of worker
+                var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
                     
-            taskHubWorker.AddTaskOrchestrations(
-                typeof(MonitoringOrchestration)
-            );
+                taskHubWorker.AddTaskOrchestrations(
+                    typeof(MonitoringOrchestration)
+                );
                         
-            taskHubWorker.AddTaskActivities(
-                new MonitoringTask()
-            );
-                    
-            Task worker = taskHubWorker.StartAsync();
+                taskHubWorker.AddTaskActivities(
+                    new MonitoringTask()
+                );
+
+                var task = taskHubWorker.StartAsync();
+                workersList.Add((task, taskHubWorker));
+            }
             
             Console.WriteLine("Press any key to stop the worker and finish the run.");
             Console.ReadLine();
@@ -144,14 +118,17 @@ namespace DurableTask.Samples
             // waiting for all the workers
             try
             {
-                await taskHubWorker.StopAsync(true);
-                await worker;
+                foreach (var pair in workersList)
+                {
+                    await pair.Item2.StopAsync(true);
+                    await pair.Item1;
+                }
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Worker got exception. Error message: {e.Message}");
             }
-                    
+
             Console.WriteLine("Press any to exit the program");
             Console.ReadLine();
             Console.WriteLine("Execution is over");
