@@ -30,11 +30,11 @@ namespace DurableTask.Samples
             HelpText = "max tasks for a worker")]
         public int MaxConcurrentTaskActivityWorkItems { get; set; }
         
-        [Option('n', "number-of-workers", DefaultValue = 16,
+        [Option('n', "number-of-workers", DefaultValue = 1,
             HelpText = "max tasks for a worker")]
         public int NumberOfWorkers { get; set; }
 
-        [Option('k', "number-of-partitions", DefaultValue = 16,
+        [Option('k', "number-of-partitions", DefaultValue = 4,
             HelpText = "max tasks for a worker")]
         public int NumberOfPartition { get; set; }
         
@@ -44,7 +44,7 @@ namespace DurableTask.Samples
 
         [Option('w', "skip-worker", DefaultValue = false,
             HelpText = "Don't start worker")]
-        public bool SkipWorker { get; set; }
+        public bool ShouldSetUpWorkers { get; set; }
 
         [Option('p', "file-path", DefaultValue = "./logs.txt",
             HelpText = "FilePath")]

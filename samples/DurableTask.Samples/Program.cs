@@ -78,7 +78,7 @@ namespace DurableTask.Samples
                     await orchestrationServiceAndClient.CreateIfNotExistsAsync();
                 }
 
-                if (!ArgumentOptions.SkipWorker)
+                if (ArgumentOptions.ShouldSetUpWorkers)
                 {
                     await WorkerMainTaskAsync(orchestrationServiceAndClient);
                     
@@ -192,7 +192,7 @@ namespace DurableTask.Samples
             {
                 for (int j = 0; j < numberOfInstancesToAdd; j++)
                 {
-                    Console.WriteLine($"Adding orchestration {j}/{numberOfInstancesToAdd}");
+                    Console.WriteLine($"Adding orchestration {j+1}/{numberOfInstancesToAdd}");
                     string host =  "127.0.0.1";
                     var monitoringInput = new MonitoringInput
                     {
