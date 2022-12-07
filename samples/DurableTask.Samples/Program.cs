@@ -50,7 +50,7 @@ namespace DurableTask.Samples
                     TaskHubName = taskHubName,
                     MaxConcurrentTaskActivityWorkItems = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
                     MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems,
-                    MaxQueuePollingInterval = TimeSpan.FromSeconds(5),
+                    MaxQueuePollingInterval = TimeSpan.FromSeconds(10),
                     PartitionCount = ArgumentOptions.NumberOfPartition
                 };
                 
@@ -193,7 +193,7 @@ namespace DurableTask.Samples
                 for (int j = 0; j < numberOfInstancesToAdd; j++)
                 {
                     Console.WriteLine($"Adding orchestration {j+1}/{numberOfInstancesToAdd}");
-                    string host =  "127.0.0.1";
+                    string host = "8.8.8.8";
                     var monitoringInput = new MonitoringInput
                     {
                         host = host,

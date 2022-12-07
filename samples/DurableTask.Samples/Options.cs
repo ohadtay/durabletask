@@ -34,7 +34,7 @@ namespace DurableTask.Samples
             HelpText = "max tasks for a worker")]
         public int NumberOfWorkers { get; set; }
 
-        [Option('k', "number-of-partitions", DefaultValue = 4,
+        [Option('k', "number-of-partitions", DefaultValue = 5,
             HelpText = "max tasks for a worker")]
         public int NumberOfPartition { get; set; }
         
