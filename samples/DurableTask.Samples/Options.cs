@@ -33,6 +33,10 @@ namespace DurableTask.Samples
         [Option('n', "number-of-workers", DefaultValue = 16,
             HelpText = "max tasks for a worker")]
         public int NumberOfWorkers { get; set; }
+
+        [Option('k', "number-of-partitions", DefaultValue = 16,
+            HelpText = "max tasks for a worker")]
+        public int NumberOfPartition { get; set; }
         
         [Option('a', "max-concurrent-task-orchestration-work-items", DefaultValue = 1000,
             HelpText = "max orchestration for a worker")]

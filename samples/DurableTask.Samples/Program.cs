@@ -51,7 +51,7 @@ namespace DurableTask.Samples
                     MaxConcurrentTaskActivityWorkItems = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
                     MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems,
                     MaxQueuePollingInterval = TimeSpan.FromSeconds(5),
-                    PartitionCount = 16
+                    PartitionCount = ArgumentOptions.NumberOfPartition
                 };
                 
                 var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
@@ -116,13 +116,18 @@ namespace DurableTask.Samples
             Console.ReadLine();
             
             // waiting for all the workers
+            var stopWorkers = new List<Task>();
             try
             {
+                Console.WriteLine("Deleting all the workers");
                 foreach (var pair in workersList)
                 {
-                    await pair.Item2.StopAsync(true);
-                    await pair.Item1;
+                    stopWorkers.Add(pair.Item2.StopAsync(true));
+                    stopWorkers.Add(pair.Item1);
                 }
+                
+                await Task.WhenAll(stopWorkers);
+                Console.WriteLine("Finished to delete the workers");
             }
             catch (Exception e)
             {
@@ -143,13 +148,6 @@ namespace DurableTask.Samples
             
             var instances = new List<OrchestrationInstance>();
             
-            var hostList = new List<string>
-            {
-                "8.8.8.8", //google ping
-                "168.63.129.16" //azure ping
-            };
-
-            var pingIndex = 0;
             ConsoleKeyInfo input;
             do
             {
@@ -158,7 +156,8 @@ namespace DurableTask.Samples
                 
                 if (input.Key == ConsoleKey.A)
                 {
-                    pingIndex = AddingInstances(hostList, pingIndex, instances, taskHubClient, filePath);
+                    await AddingInstances(instances, taskHubClient, filePath);
+                    Console.WriteLine($"Total {instances?.Count} orchestrations");
                 }
 
                 if (input.Key == ConsoleKey.D)
@@ -184,7 +183,7 @@ namespace DurableTask.Samples
             }
         }
 
-        static int AddingInstances(List<string> hostList, int i, List<OrchestrationInstance> instances, TaskHubClient taskHubClient, string filePath)
+        static async Task AddingInstances(List<OrchestrationInstance> instances, TaskHubClient taskHubClient, string filePath)
         {
             Console.WriteLine("Enter number of instances to add");
             string numberInstances = Console.ReadLine();
@@ -193,7 +192,8 @@ namespace DurableTask.Samples
             {
                 for (int j = 0; j < numberOfInstancesToAdd; j++)
                 {
-                    string host = hostList[i];
+                    Console.WriteLine($"Adding orchestration {j}/{numberOfInstancesToAdd}");
+                    string host =  "127.0.0.1";
                     var monitoringInput = new MonitoringInput
                     {
                         host = host,
@@ -201,11 +201,9 @@ namespace DurableTask.Samples
                     };
                     
                     instances.Add(GenerateNewOrchestration(taskHubClient, monitoringInput));
-                    i = i == 1 ? 0 : 1;
+                    await Task.Delay(TimeSpan.FromSeconds(5));
                 }
             }
-
-            return i;
         }
 
         static async Task DeleteInstances(List<OrchestrationInstance> instances, Random random, TaskHubClient taskHubClient)
