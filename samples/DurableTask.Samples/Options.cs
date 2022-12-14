@@ -26,7 +26,7 @@ namespace DurableTask.Samples
             HelpText = "Instance id for new orchestration instance.")]
         public string InstanceId { get; set; }
         
-        [Option('m', "max-concurrent-task-activity-work-items", DefaultValue = 1000,
+        [Option('m', "max-concurrent-task-activity-work-items", DefaultValue = 400,
             HelpText = "max tasks for a worker")]
         public int MaxConcurrentTaskActivityWorkItems { get; set; }
         
@@ -38,7 +38,7 @@ namespace DurableTask.Samples
             HelpText = "max tasks for a worker")]
         public int NumberOfPartition { get; set; }
         
-        [Option('a', "max-concurrent-task-orchestration-work-items", DefaultValue = 1000,
+        [Option('a', "max-concurrent-task-orchestration-work-items", DefaultValue = 400,
             HelpText = "max orchestration for a worker")]
         public int MaxConcurrentTaskOrchestrationWorkItems { get; set; }
 

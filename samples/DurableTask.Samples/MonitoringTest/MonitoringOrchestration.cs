@@ -15,7 +15,7 @@ namespace DurableTask.Samples.MonitoringTest
             string instanceId = context.OrchestrationInstance.InstanceId.ToString();
             try
             {
-                for (int i = 0; i < 60; i++)
+                // for (int i = 0; i < 1; i++)
                 {
                     var showVersionOutput = await context.ScheduleTask<MonitoringOutput>(typeof(MonitoringTask), new MonitoringInput
                     {
@@ -35,7 +35,7 @@ namespace DurableTask.Samples.MonitoringTest
                     await context.CreateTimer(context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1) - showVersionExecutionDeltaTime), context.OrchestrationInstance.InstanceId);
                     if (!context.IsReplaying)
                     {
-                        Console.WriteLine($"Execution {context.OrchestrationInstance.ExecutionId} Loop {i} timing (Replying {context.IsReplaying}): S: {showVersionOutput.scheduledTime}, E: {showVersionOutput.executionTime}, C: {context.CurrentUtcDateTime}, D: {showVersionExecutionDeltaTime}, DT: {context.CurrentUtcDateTime-showVersionOutput.scheduledTime}");
+                        Console.WriteLine($"Execution {context.OrchestrationInstance.ExecutionId} Loop {0} timing (Replying {context.IsReplaying}): S: {showVersionOutput.scheduledTime}, E: {showVersionOutput.executionTime}, C: {context.CurrentUtcDateTime}, D: {showVersionExecutionDeltaTime}, DT: {context.CurrentUtcDateTime-showVersionOutput.scheduledTime}");
                     }
                 }
             }

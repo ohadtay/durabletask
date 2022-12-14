@@ -51,7 +51,9 @@ namespace DurableTask.Samples
                     MaxConcurrentTaskActivityWorkItems = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
                     MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems,
                     MaxQueuePollingInterval = TimeSpan.FromSeconds(10),
-                    PartitionCount = ArgumentOptions.NumberOfPartition
+                    PartitionCount = ArgumentOptions.NumberOfPartition,
+                    ExtendedSessionsEnabled = true,
+                    ControlQueueBufferThreshold = 1000
                 };
                 
                 var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
