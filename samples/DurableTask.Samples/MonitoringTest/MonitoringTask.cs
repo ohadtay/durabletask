@@ -42,14 +42,14 @@ namespace DurableTask.Samples.MonitoringTest
                 using ICslAdminProvider client = KustoClientFactory.CreateCslAdminProvider(kcsb);
                 using IDataReader reader = await client.ExecuteControlCommandAsync("", ".show version");
 
-                while (reader.Read())
-                {
-                    Console.WriteLine("\t{0}={1}", monitoringInput.Host, reader.GetString(0));
-                }
+                // while (reader.Read())
+                // {
+                //     Console.WriteLine("\t{0}={1}", monitoringInput.Host, reader.GetString(0));
+                // }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("\t\t" + ex.Message);
+                // Console.WriteLine("\t\t" + ex.Message);
                 // ignored
             }
 
