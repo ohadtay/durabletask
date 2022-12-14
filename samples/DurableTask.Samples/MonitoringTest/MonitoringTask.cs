@@ -47,7 +47,7 @@ namespace DurableTask.Samples.MonitoringTest
                 //     Console.WriteLine("\t{0}={1}", monitoringInput.Host, reader.GetString(0));
                 // }
             }
-            catch (Exception ex)
+            catch
             {
                 // Console.WriteLine("\t\t" + ex.Message);
                 // ignored
