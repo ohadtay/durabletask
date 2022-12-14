@@ -16,7 +16,6 @@ namespace DurableTask.Samples.MonitoringTest
     public sealed class MonitoringInput
     {
         public string host;
-        public string filePath;
 
         public DateTime scheduledTime;
     }
@@ -33,7 +32,7 @@ namespace DurableTask.Samples.MonitoringTest
         {
             try
             {
-                var kcsb = new KustoConnectionStringBuilder("https://manage-kustodf3.dev.kusto.windows.net;Fed=True")
+                var kcsb = new KustoConnectionStringBuilder(monitoringInput.host + ";Fed=True")
                     .WithAadApplicationCertificateAuthentication(
                         "77daa54b-ea23-4f3a-8836-f644ddf9dab7",
                         CertificateUtilities.TryLoadCertificate(StoreLocation.CurrentUser, StoreName.My, X509FindType.FindByThumbprint, "D3EA9FD63C04E268861CD8A8831BD103FFFD04FD", true),
@@ -44,14 +43,14 @@ namespace DurableTask.Samples.MonitoringTest
 
                 while (reader.Read())
                 {
-                    Console.WriteLine("manage-kustodf3={0}", reader.GetString(0));
+                    Console.WriteLine("{0}={1}", monitoringInput.host, reader.GetString(0));
                 }
                 // using var pinger = new Ping();
                 // await pinger.SendPingAsync(monitoringInput.host, 30_000);
             }
-            catch (PingException)
+            catch
             {
-                // Discard PingExceptions and return false;
+                // ignored
             }
 
             return new MonitoringOutput
