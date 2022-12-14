@@ -28,7 +28,7 @@ namespace DurableTask.Samples.MonitoringTest
                 {
                     if (showVersionExecutionDeltaTime >= TimeSpan.FromMinutes(1))
                     {
-                        throw new Exception($"\tError! Instance, '{instanceId}', ExecutionId ,'{context.OrchestrationInstance.ExecutionId}', - Ping took ,'{showVersionExecutionDeltaTime}'");
+                        throw new Exception($"\tError! Instance, '{instanceId}', ExecutionId ,'{context.OrchestrationInstance.ExecutionId}', - activity took '{showVersionExecutionDeltaTime}'");
                     }
                 }
 

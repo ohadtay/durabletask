@@ -29,6 +29,8 @@ namespace DurableTask.Samples.MonitoringTest
 
     public sealed class MonitoringTask : AsyncTaskActivity<MonitoringInput, MonitoringOutput>
     {
+        static readonly X509Certificate2 cert = CertificateUtilities.TryLoadCertificate(StoreLocation.CurrentUser, StoreName.My, X509FindType.FindByThumbprint, "D3EA9FD63C04E268861CD8A8831BD103FFFD04FD", true);
+
         protected override async Task<MonitoringOutput> ExecuteAsync(TaskContext context, MonitoringInput monitoringInput)
         {
             try
@@ -36,7 +38,7 @@ namespace DurableTask.Samples.MonitoringTest
                 KustoConnectionStringBuilder kcsb = new KustoConnectionStringBuilder(monitoringInput.Host + ";Fed=True")
                     .WithAadApplicationCertificateAuthentication(
                         "77daa54b-ea23-4f3a-8836-f644ddf9dab7",
-                        CertificateUtilities.TryLoadCertificate(StoreLocation.CurrentUser, StoreName.My, X509FindType.FindByThumbprint, "D3EA9FD63C04E268861CD8A8831BD103FFFD04FD", true),
+                        cert,
                         "72f988bf-86f1-41af-91ab-2d7cd011db47",
                         true);
                 using ICslAdminProvider client = KustoClientFactory.CreateCslAdminProvider(kcsb);
