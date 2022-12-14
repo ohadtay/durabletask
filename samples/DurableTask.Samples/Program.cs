@@ -42,7 +42,6 @@ namespace DurableTask.Samples
             {
                 string storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
                 string taskHubName = ConfigurationManager.AppSettings["taskHubName"];
-                string filePath = ArgumentOptions.FilePath;
 
                 var settings = new AzureStorageOrchestrationServiceSettings
                 {
@@ -89,7 +88,7 @@ namespace DurableTask.Samples
                 }
                 else
                 {
-                    await OrchestrationsTaskAsync(orchestrationServiceAndClient, filePath);
+                    await OrchestrationsTaskAsync(orchestrationServiceAndClient);
                 }
             }
         }
@@ -97,7 +96,7 @@ namespace DurableTask.Samples
         static async Task WorkerMainTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient)
         {
             var workersList = new List<(Task, TaskHubWorker)>(ArgumentOptions.NumberOfWorkers);
-            for (int i = 0; i < ArgumentOptions.NumberOfWorkers; i++)
+            for (var i = 0; i < ArgumentOptions.NumberOfWorkers; i++)
             {
                 //generating one instance of worker
                 var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
@@ -110,7 +109,7 @@ namespace DurableTask.Samples
                     new MonitoringTask()
                 );
 
-                var task = taskHubWorker.StartAsync();
+                Task<TaskHubWorker> task = taskHubWorker.StartAsync();
                 workersList.Add((task, taskHubWorker));
             }
 
@@ -122,7 +121,7 @@ namespace DurableTask.Samples
             try
             {
                 Console.WriteLine("Deleting all the workers");
-                foreach (var pair in workersList)
+                foreach ((Task, TaskHubWorker) pair in workersList)
                 {
                     stopWorkers.Add(pair.Item2.StopAsync(true));
                     stopWorkers.Add(pair.Item1);
@@ -141,7 +140,7 @@ namespace DurableTask.Samples
             Console.WriteLine("Execution is over");
         }
 
-        static async Task OrchestrationsTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient, string filePath)
+        static async Task OrchestrationsTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient)
         {
             Console.WriteLine("Generating new orchestrations");
             Console.WriteLine("Press A for generating a new orchestration and D for delete one orchestration");
@@ -158,7 +157,7 @@ namespace DurableTask.Samples
 
                 if (input.Key == ConsoleKey.A)
                 {
-                    await AddingInstances(instances, taskHubClient, filePath);
+                    await AddingInstances(instances, taskHubClient);
                     Console.WriteLine($"Total {instances?.Count} orchestrations");
                 }
 
@@ -185,23 +184,23 @@ namespace DurableTask.Samples
             }
         }
 
-        static async Task AddingInstances(List<OrchestrationInstance> instances, TaskHubClient taskHubClient, string filePath)
+        static async Task AddingInstances(List<OrchestrationInstance> instances, TaskHubClient taskHubClient)
         {
             Console.WriteLine("Enter number of instances to add");
             string numberInstances = Console.ReadLine();
-            Random rand = new Random();
+            var rand = new Random();
 
             if (Int32.TryParse(numberInstances, out int numberOfInstancesToAdd) && numberOfInstancesToAdd > 0)
             {
-                for (int j = 0; j < numberOfInstancesToAdd; j++)
+                for (var j = 0; j < numberOfInstancesToAdd; j++)
                 {
                     Console.WriteLine($"Adding orchestration {j + 1}/{numberOfInstancesToAdd}");
-                    int index = rand.Next(hosts.Length);  
+                    int index = rand.Next(hosts.Length);
 
                     string host = hosts[index];
                     var monitoringInput = new MonitoringInput
                     {
-                        host = host
+                        Host = host
                     };
 
                     instances.Add(GenerateNewOrchestration(taskHubClient, monitoringInput));
@@ -217,7 +216,7 @@ namespace DurableTask.Samples
 
             if (Int32.TryParse(numberInstances, out int numberOfInstancesToAdd) && numberOfInstancesToAdd > 0 && instances.Count - numberOfInstancesToAdd >= 0)
             {
-                for (int j = 0; j < numberOfInstancesToAdd; j++)
+                for (var j = 0; j < numberOfInstancesToAdd; j++)
                 {
                     int randomNumber = random.Next(0, instances.Count);
                     OrchestrationInstance instanceToRemove = instances[randomNumber];
@@ -233,10 +232,10 @@ namespace DurableTask.Samples
         static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, MonitoringInput input)
         {
             string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
-            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} with input {input.host}");
+            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} with input {input.Host}");
 
             //creating a new instance
-            var instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, input).Result;
+            OrchestrationInstance instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, input).Result;
             Console.WriteLine($"GenerateNewOrchestration: InstanceId {instanceId}, created with status {instance}");
             return instance;
         }
@@ -453,7 +452,6 @@ namespace DurableTask.Samples
             "https://l8v1.dev.kusto.windows.net",
             "https://amitof2.dev.kusto.windows.net",
             "https://zivckusto.dev.kusto.windows.net",
-            "https://alexans.dev.kusto.windows.net",
             "https://idoeinkusto.dev.kusto.windows.net",
             "https://alexefro.dev.kusto.windows.net",
             "https://zivckusto3.dev.kusto.windows.net",
@@ -612,9 +610,7 @@ namespace DurableTask.Samples
             "https://ingest-dumarkovadx5.westeurope.dev.kusto.windows.net",
             "https://ingest-dumarkovadx1.westeurope.dev.kusto.windows.net",
             "https://roshauli.australiaeast.dev.kusto.windows.net",
-            "https://sujudtestpython4.australiaeast.dev.kusto.windows.net",
             "https://ingest-roshauli.australiaeast.dev.kusto.windows.net",
-            "https://ingest-sujudtestpython4.australiaeast.dev.kusto.windows.net",
             "https://logalerts.eastus2euap.dev.kusto.windows.net",
             "https://sujudrptest.australiaeast.dev.kusto.windows.net",
             "https://ingest-sujudrptest.australiaeast.dev.kusto.windows.net",

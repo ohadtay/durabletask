@@ -5,25 +5,26 @@
 namespace DurableTask.Samples.MonitoringTest
 {
     using System;
-    using System.Net.NetworkInformation;
+    using System.Data;
     using System.Security.Cryptography.X509Certificates;
     using System.Threading.Tasks;
     using DurableTask.Core;
     using Kusto.Cloud.Platform.Security;
     using Kusto.Data;
+    using Kusto.Data.Common;
     using Kusto.Data.Net.Client;
 
     public sealed class MonitoringInput
     {
-        public string host;
+        public string Host;
 
-        public DateTime scheduledTime;
+        public DateTime ScheduledTime;
     }
 
     public sealed class MonitoringOutput
     {
-        public DateTime executionTime;
-        public DateTime scheduledTime;
+        public DateTime ExecutionTime;
+        public DateTime ScheduledTime;
     }
 
     public sealed class MonitoringTask : AsyncTaskActivity<MonitoringInput, MonitoringOutput>
@@ -32,31 +33,30 @@ namespace DurableTask.Samples.MonitoringTest
         {
             try
             {
-                var kcsb = new KustoConnectionStringBuilder(monitoringInput.host + ";Fed=True")
+                KustoConnectionStringBuilder kcsb = new KustoConnectionStringBuilder(monitoringInput.Host + ";Fed=True")
                     .WithAadApplicationCertificateAuthentication(
                         "77daa54b-ea23-4f3a-8836-f644ddf9dab7",
                         CertificateUtilities.TryLoadCertificate(StoreLocation.CurrentUser, StoreName.My, X509FindType.FindByThumbprint, "D3EA9FD63C04E268861CD8A8831BD103FFFD04FD", true),
                         "72f988bf-86f1-41af-91ab-2d7cd011db47",
                         true);
-                using var client = KustoClientFactory.CreateCslAdminProvider(kcsb);
-                using var reader = await client.ExecuteControlCommandAsync("", ".show version");
+                using ICslAdminProvider client = KustoClientFactory.CreateCslAdminProvider(kcsb);
+                using IDataReader reader = await client.ExecuteControlCommandAsync("", ".show version");
 
                 while (reader.Read())
                 {
-                    Console.WriteLine("{0}={1}", monitoringInput.host, reader.GetString(0));
+                    Console.WriteLine("\t{0}={1}", monitoringInput.Host, reader.GetString(0));
                 }
-                // using var pinger = new Ping();
-                // await pinger.SendPingAsync(monitoringInput.host, 30_000);
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine("\t\t" + ex.Message);
                 // ignored
             }
 
             return new MonitoringOutput
             {
-                executionTime = DateTime.UtcNow,
-                scheduledTime = monitoringInput.scheduledTime
+                ExecutionTime = DateTime.UtcNow,
+                ScheduledTime = monitoringInput.ScheduledTime
             };
         }
     }

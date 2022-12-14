@@ -12,31 +12,30 @@ namespace DurableTask.Samples.MonitoringTest
     {
         public override async Task<string> RunTask(OrchestrationContext context, MonitoringInput input)
         {
-            string instanceId = context.OrchestrationInstance.InstanceId.ToString();
+            var instanceId = context.OrchestrationInstance.InstanceId.ToString();
             try
             {
-                // for (int i = 0; i < 1; i++)
-                {
-                    var showVersionOutput = await context.ScheduleTask<MonitoringOutput>(typeof(MonitoringTask), new MonitoringInput
+                var showVersionOutput = await context.ScheduleTask<MonitoringOutput>(
+                    typeof(MonitoringTask),
+                    new MonitoringInput
                     {
-                        host = input.host,
-                        scheduledTime = context.CurrentUtcDateTime
+                        Host = input.Host,
+                        ScheduledTime = context.CurrentUtcDateTime
                     });
 
-                    var showVersionExecutionDeltaTime = context.CurrentUtcDateTime - showVersionOutput.scheduledTime;
-                    if (!context.IsReplaying)
+                TimeSpan showVersionExecutionDeltaTime = context.CurrentUtcDateTime - showVersionOutput.ScheduledTime;
+                if (!context.IsReplaying)
+                {
+                    if (showVersionExecutionDeltaTime >= TimeSpan.FromMinutes(1))
                     {
-                        if (showVersionExecutionDeltaTime >= TimeSpan.FromMinutes(1))
-                        {
-                            throw new Exception($"Error! Instance, '{instanceId}', ExecutionId ,'{context.OrchestrationInstance.ExecutionId}', - Ping took ,'{showVersionExecutionDeltaTime}'");
-                        }
+                        throw new Exception($"\tError! Instance, '{instanceId}', ExecutionId ,'{context.OrchestrationInstance.ExecutionId}', - Ping took ,'{showVersionExecutionDeltaTime}'");
                     }
+                }
 
-                    await context.CreateTimer(context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1) - showVersionExecutionDeltaTime), context.OrchestrationInstance.InstanceId);
-                    if (!context.IsReplaying)
-                    {
-                        Console.WriteLine($"Execution {context.OrchestrationInstance.ExecutionId} Loop {0} timing (Replying {context.IsReplaying}): S: {showVersionOutput.scheduledTime}, E: {showVersionOutput.executionTime}, C: {context.CurrentUtcDateTime}, D: {showVersionExecutionDeltaTime}, DT: {context.CurrentUtcDateTime-showVersionOutput.scheduledTime}");
-                    }
+                await context.CreateTimer(context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1) - showVersionExecutionDeltaTime), context.OrchestrationInstance.InstanceId);
+                if (!context.IsReplaying)
+                {
+                    Console.WriteLine($"Execution {context.OrchestrationInstance.ExecutionId} timing: S: {showVersionOutput.ScheduledTime}, E: {showVersionOutput.ExecutionTime}, C: {context.CurrentUtcDateTime}, D: {showVersionExecutionDeltaTime}, DT: {context.CurrentUtcDateTime - showVersionOutput.ScheduledTime}");
                 }
             }
             catch (Exception e)
