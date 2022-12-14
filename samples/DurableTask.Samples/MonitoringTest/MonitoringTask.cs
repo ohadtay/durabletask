@@ -6,7 +6,7 @@ namespace DurableTask.Samples.MonitoringTest
 {
     using System;
     using System.Net.NetworkInformation;
-    using System.Threading;
+    using System.Threading.Tasks;
     using DurableTask.Core;
 
     public sealed class MonitoringInput
@@ -23,15 +23,14 @@ namespace DurableTask.Samples.MonitoringTest
         public DateTime scheduledTime;
     }
 
-    public sealed class MonitoringTask : TaskActivity<MonitoringInput, MonitoringOutput>
+    public sealed class MonitoringTask : AsyncTaskActivity<MonitoringInput, MonitoringOutput>
     {
-        private static Ping pinger = new Ping();
-
-        protected override MonitoringOutput Execute(DurableTask.Core.TaskContext context, MonitoringInput monitoringInput)
+        protected override async Task<MonitoringOutput> ExecuteAsync(TaskContext context, MonitoringInput monitoringInput)
         {
             try
             {
-                pinger.Send(monitoringInput.host);
+                using var pinger = new Ping();
+                await pinger.SendPingAsync(monitoringInput.host, 30_000);
             }
             catch (PingException)
             {

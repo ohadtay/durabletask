@@ -42,8 +42,8 @@ namespace DurableTask.Samples
             HelpText = "max orchestration for a worker")]
         public int MaxConcurrentTaskOrchestrationWorkItems { get; set; }
 
-        [Option('w', "skip-worker", DefaultValue = false,
-            HelpText = "Don't start worker")]
+        [Option('w', "start-worker", DefaultValue = false,
+            HelpText = "Start workers")]
         public bool ShouldSetUpWorkers { get; set; }
 
         [Option('p', "file-path", DefaultValue = "./logs.txt",
