@@ -23,8 +23,9 @@ namespace DurableTask.Samples.MonitoringTest
 
     public sealed class MonitoringOutput
     {
-        public DateTime ExecutionTime;
+        public DateTime TaskExecutionFinishTime;
         public DateTime ScheduledTime;
+        public bool Success;
     }
 
     public sealed class MonitoringTask : AsyncTaskActivity<MonitoringInput, MonitoringOutput>
@@ -33,6 +34,7 @@ namespace DurableTask.Samples.MonitoringTest
 
         protected override async Task<MonitoringOutput> ExecuteAsync(TaskContext context, MonitoringInput monitoringInput)
         {
+            var result = true;
             try
             {
                 KustoConnectionStringBuilder kcsb = new KustoConnectionStringBuilder(monitoringInput.Host + ";Fed=True")
@@ -51,14 +53,16 @@ namespace DurableTask.Samples.MonitoringTest
             }
             catch
             {
+                result = false;
                 // Console.WriteLine("\t\t" + ex.Message);
                 // ignored
             }
 
             return new MonitoringOutput
             {
-                ExecutionTime = DateTime.UtcNow,
-                ScheduledTime = monitoringInput.ScheduledTime
+                TaskExecutionFinishTime = DateTime.UtcNow,
+                ScheduledTime = monitoringInput.ScheduledTime,
+                Success = result
             };
         }
     }

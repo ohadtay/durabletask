@@ -7,14 +7,18 @@ namespace DurableTask.Samples.MonitoringTest
     using System;
     using System.Threading.Tasks;
     using DurableTask.Core;
+    using Kusto.Cloud.Platform.Utils;
 
     public class MonitoringOrchestration : TaskOrchestration<string, MonitoringInput>
     {
         public override async Task<string> RunTask(OrchestrationContext context, MonitoringInput input)
         {
-            var instanceId = context.OrchestrationInstance.InstanceId.ToString();
+            var consoleColor = ConsoleColor.Green;
+
             try
             {
+                var instanceId = context.OrchestrationInstance.InstanceId.ToString();
+
                 var showVersionOutput = await context.ScheduleTask<MonitoringOutput>(
                     typeof(MonitoringTask),
                     new MonitoringInput
@@ -22,29 +26,38 @@ namespace DurableTask.Samples.MonitoringTest
                         Host = input.Host,
                         ScheduledTime = context.CurrentUtcDateTime
                     });
+                string result = showVersionOutput.Success ? "Succeeded" : "Failed";
+                string hostname = instanceId.Substring(0, instanceId.IndexOf('.'));
 
-                TimeSpan showVersionExecutionDeltaTime = context.CurrentUtcDateTime - showVersionOutput.ScheduledTime;
                 if (!context.IsReplaying)
                 {
-                    if (showVersionExecutionDeltaTime >= TimeSpan.FromMinutes(1))
+                    if (context.CurrentUtcDateTime - input.ScheduledTime >= TimeSpan.FromMinutes(1))
                     {
-                        throw new Exception($"\tError! Instance, '{instanceId}', ExecutionId ,'{context.OrchestrationInstance.ExecutionId}', - activity took '{showVersionExecutionDeltaTime}'");
+                        consoleColor = ConsoleColor.Red;
+                        ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result}");
+
+                        throw new Exception($"Error!");
                     }
                 }
 
-                await context.CreateTimer(context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1) - showVersionExecutionDeltaTime), context.OrchestrationInstance.InstanceId);
+                await context.CreateTimer(context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1) - (context.CurrentUtcDateTime - input.ScheduledTime)), context.OrchestrationInstance.InstanceId);
                 if (!context.IsReplaying)
                 {
-                    Console.WriteLine($"Execution {context.OrchestrationInstance.ExecutionId} timing: S: {showVersionOutput.ScheduledTime}, E: {showVersionOutput.ExecutionTime}, C: {context.CurrentUtcDateTime}, D: {showVersionExecutionDeltaTime}, DT: {context.CurrentUtcDateTime - showVersionOutput.ScheduledTime}");
+                    ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result}");
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Console.WriteLine($"Failure: '{e.Message}'");
+                // ignored
             }
             finally
             {
-                context.ContinueAsNew(input);
+                // context.ContinueAsNew(input);
+                context.ContinueAsNew(new MonitoringInput
+                {
+                    Host = input.Host,
+                    ScheduledTime = context.CurrentUtcDateTime
+                });
             }
 
             return null;

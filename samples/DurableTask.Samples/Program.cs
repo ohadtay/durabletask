@@ -18,26 +18,18 @@ namespace DurableTask.Samples
     using System;
     using System.Collections.Generic;
     using System.Configuration;
-    using System.Diagnostics.Tracing;
     using System.Threading.Tasks;
     using DurableTask.AzureStorage;
     using DurableTask.Core;
-    using DurableTask.Core.Tracing;
     using DurableTask.Samples.MonitoringTest;
-    using Microsoft.Practices.EnterpriseLibrary.SemanticLogging;
 
     internal class Program
     {
         static readonly Options ArgumentOptions = new Options();
-        static ObservableEventListener eventListener;
 
         [STAThread]
         static async Task Main(string[] args)
         {
-            eventListener = new ObservableEventListener();
-            eventListener.LogToConsole();
-            eventListener.EnableEvents(DefaultEventSource.Log, EventLevel.LogAlways);
-
             if (CommandLine.Parser.Default.ParseArgumentsStrict(args, ArgumentOptions))
             {
                 string storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
@@ -55,49 +47,51 @@ namespace DurableTask.Samples
                     ControlQueueBufferThreshold = 1000
                 };
 
-                var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
-
-                if (ArgumentOptions.CreateHub)
-                {
-                    try
-                    {
-                        Console.WriteLine("Deleting all storage information");
-                        // Delete all Azure Storage tables, blobs, and queues in the task hub
-                        await orchestrationServiceAndClient.DeleteAsync();
-
-                        // Wait for a minute since Azure Storage won't let us immediately
-                        // recreate resources with the same names as before.
-                        await Task.Delay(TimeSpan.FromMinutes(1));
-                        Console.WriteLine("Finished deleting storage information");
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine($"Could not delete the orchestration. Error message: {e.Message}");
-                    }
-
-                    // I want to throw exception if we do not succeed
-                    await orchestrationServiceAndClient.CreateIfNotExistsAsync();
-                }
-
                 if (ArgumentOptions.ShouldSetUpWorkers)
                 {
-                    await WorkerMainTaskAsync(orchestrationServiceAndClient);
+                    if (ArgumentOptions.CreateHub)
+                    {
+                        var orchestrationService = new AzureStorageOrchestrationService(settings);
+                        try
+                        {
+                            Console.WriteLine("Deleting all storage information");
+                            // Delete all Azure Storage tables, blobs, and queues in the task hub
+                            await orchestrationService.DeleteAsync();
+
+                            // Wait for a minute since Azure Storage won't let us immediately
+                            // recreate resources with the same names as before.
+                            await Task.Delay(TimeSpan.FromMinutes(1));
+                            Console.WriteLine("Finished deleting storage information");
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine($"Could not delete the orchestration. Error message: {e.Message}");
+                        }
+
+                        // I want to throw exception if we do not succeed
+                        await orchestrationService.CreateIfNotExistsAsync();
+                    }
+
+                    await WorkerMainTaskAsync(settings);
 
                     //Writing to the file will happen from the process of the worker
                     // UploadFileIntoBlob(storageConnectionString, filePath);
                 }
                 else
                 {
-                    await OrchestrationsTaskAsync(orchestrationServiceAndClient);
+                    await OrchestrationsTaskAsync(new AzureStorageOrchestrationService(settings));
                 }
             }
         }
 
-        static async Task WorkerMainTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient)
+        static async Task WorkerMainTaskAsync(AzureStorageOrchestrationServiceSettings settings)
         {
-            var workersList = new List<(Task, TaskHubWorker)>(ArgumentOptions.NumberOfWorkers);
+            var workersList = new List<TaskHubWorker>(ArgumentOptions.NumberOfWorkers);
+            var workersTasks = new List<Task>();
             for (var i = 0; i < ArgumentOptions.NumberOfWorkers; i++)
             {
+                var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
+
                 //generating one instance of worker
                 var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
 
@@ -106,29 +100,30 @@ namespace DurableTask.Samples
                 );
 
                 taskHubWorker.AddTaskActivities(
-                    new MonitoringTask()
+                    typeof(MonitoringTask)
                 );
 
-                Task<TaskHubWorker> task = taskHubWorker.StartAsync();
-                workersList.Add((task, taskHubWorker));
+                workersList.Add(taskHubWorker);
+                // Console.WriteLine($"Starting worker {taskHubWorker.GetHashCode()}");
+                workersTasks.Add(taskHubWorker.StartAsync());
             }
+
+            await Task.WhenAll(workersTasks);
 
             Console.WriteLine("Press any key to stop the worker and finish the run.");
             Console.ReadLine();
 
             // waiting for all the workers
-            var stopWorkers = new List<Task>();
             try
             {
-                Console.WriteLine("Deleting all the workers");
-                foreach ((Task, TaskHubWorker) pair in workersList)
+                Console.WriteLine("Stopping all the workers");
+                foreach (TaskHubWorker taskHubWorker in workersList)
                 {
-                    stopWorkers.Add(pair.Item2.StopAsync(true));
-                    stopWorkers.Add(pair.Item1);
+                    Console.WriteLine($"Stopping worker {taskHubWorker.GetHashCode()}");
+                    await taskHubWorker.StopAsync(true);
                 }
 
-                await Task.WhenAll(stopWorkers);
-                Console.WriteLine("Finished to delete the workers");
+                Console.WriteLine("Finished to stop the workers");
             }
             catch (Exception e)
             {
@@ -140,11 +135,11 @@ namespace DurableTask.Samples
             Console.WriteLine("Execution is over");
         }
 
-        static async Task OrchestrationsTaskAsync(AzureStorageOrchestrationService orchestrationServiceAndClient)
+        static async Task OrchestrationsTaskAsync(AzureStorageOrchestrationService orchestrationServiceClient)
         {
             Console.WriteLine("Generating new orchestrations");
             Console.WriteLine("Press A for generating a new orchestration and D for delete one orchestration");
-            var taskHubClient = new TaskHubClient(orchestrationServiceAndClient);
+            var taskHubClient = new TaskHubClient(orchestrationServiceClient);
             var random = new Random();
 
             var instances = new List<OrchestrationInstance>();
@@ -157,7 +152,7 @@ namespace DurableTask.Samples
 
                 if (input.Key == ConsoleKey.A)
                 {
-                    await AddingInstances(instances, taskHubClient);
+                    await AddInstances(instances, taskHubClient);
                     Console.WriteLine($"Total {instances?.Count} orchestrations");
                 }
 
@@ -184,7 +179,7 @@ namespace DurableTask.Samples
             }
         }
 
-        static async Task AddingInstances(List<OrchestrationInstance> instances, TaskHubClient taskHubClient)
+        static async Task AddInstances(List<OrchestrationInstance> instances, TaskHubClient taskHubClient)
         {
             Console.WriteLine("Enter number of instances to add");
             string numberInstances = Console.ReadLine();
@@ -195,16 +190,13 @@ namespace DurableTask.Samples
                 for (var j = 0; j < numberOfInstancesToAdd; j++)
                 {
                     Console.WriteLine($"Adding orchestration {j + 1}/{numberOfInstancesToAdd}");
-                    int index = rand.Next(hosts.Length);
+                    int index = rand.Next(Hosts.Length);
 
-                    string host = hosts[index];
-                    var monitoringInput = new MonitoringInput
-                    {
-                        Host = host
-                    };
+                    string host = Hosts[index];
+                    
 
-                    instances.Add(GenerateNewOrchestration(taskHubClient, monitoringInput));
-                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    instances.Add(GenerateNewOrchestration(taskHubClient, host));
+                    await Task.Delay(TimeSpan.FromMilliseconds(5));
                 }
             }
         }
@@ -229,18 +221,23 @@ namespace DurableTask.Samples
             }
         }
 
-        static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, MonitoringInput input)
+        static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, string host)
         {
-            string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
-            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} with input {input.Host}");
+            var monitoringInput = new MonitoringInput
+            {
+                Host = host,
+                ScheduledTime = DateTime.UtcNow
+            };
+            string hostname = new Uri(host).Host;
+            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {hostname}");
 
             //creating a new instance
-            OrchestrationInstance instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, input).Result;
-            Console.WriteLine($"GenerateNewOrchestration: InstanceId {instanceId}, created with status {instance}");
+            OrchestrationInstance instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), hostname, monitoringInput).Result;
+            Console.WriteLine($"GenerateNewOrchestration: InstanceId {hostname}, created with status {instance}");
             return instance;
         }
 
-        static readonly string[] hosts =
+        static readonly string[] Hosts =
         {
             "https://linuxperf.westeurope.dev.kusto.windows.net",
             "https://linuxperf5.dev.kusto.windows.net",
