@@ -90,10 +90,8 @@ namespace DurableTask.Samples
             var workersTasks = new List<Task>();
             for (var i = 0; i < ArgumentOptions.NumberOfWorkers; i++)
             {
-                var orchestrationServiceAndClient = new AzureStorageOrchestrationService(settings);
-
                 //generating one instance of worker
-                var taskHubWorker = new TaskHubWorker(orchestrationServiceAndClient);
+                var taskHubWorker = new TaskHubWorker(new AzureStorageOrchestrationService(settings));
 
                 taskHubWorker.AddTaskOrchestrations(
                     typeof(MonitoringOrchestration)
@@ -193,7 +191,6 @@ namespace DurableTask.Samples
                     int index = rand.Next(Hosts.Length);
 
                     string host = Hosts[index];
-                    
 
                     instances.Add(GenerateNewOrchestration(taskHubClient, host));
                     await Task.Delay(TimeSpan.FromMilliseconds(5));
@@ -223,17 +220,18 @@ namespace DurableTask.Samples
 
         static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, string host)
         {
+            string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
             var monitoringInput = new MonitoringInput
             {
                 Host = host,
                 ScheduledTime = DateTime.UtcNow
             };
             string hostname = new Uri(host).Host;
-            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {hostname}");
+            Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} for host {hostname}");
 
             //creating a new instance
-            OrchestrationInstance instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), hostname, monitoringInput).Result;
-            Console.WriteLine($"GenerateNewOrchestration: InstanceId {hostname}, created with status {instance}");
+            OrchestrationInstance instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, monitoringInput).Result;
+            Console.WriteLine($"GenerateNewOrchestration: InstanceId {instanceId} for host {hostname}, created with status {instance}");
             return instance;
         }
 

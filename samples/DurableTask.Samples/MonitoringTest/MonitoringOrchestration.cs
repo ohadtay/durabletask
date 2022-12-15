@@ -17,8 +17,6 @@ namespace DurableTask.Samples.MonitoringTest
 
             try
             {
-                var instanceId = context.OrchestrationInstance.InstanceId.ToString();
-
                 var showVersionOutput = await context.ScheduleTask<MonitoringOutput>(
                     typeof(MonitoringTask),
                     new MonitoringInput
@@ -27,7 +25,7 @@ namespace DurableTask.Samples.MonitoringTest
                         ScheduledTime = context.CurrentUtcDateTime
                     });
                 string result = showVersionOutput.Success ? "Succeeded" : "Failed";
-                string hostname = instanceId.Substring(0, instanceId.IndexOf('.'));
+                string hostname = input.Host.Substring(8, input.Host.IndexOf('.') - 8);
 
                 if (!context.IsReplaying)
                 {
