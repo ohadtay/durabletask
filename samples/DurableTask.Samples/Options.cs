@@ -18,9 +18,9 @@ namespace DurableTask.Samples
 
     internal class Options
     {
-        [Option('c', "create-hub", DefaultValue = false,
-            HelpText = "Create Orchestration Hub.")]
-        public bool CreateHub { get; set; }
+        [Option('c', "clean-hub", DefaultValue = false,
+            HelpText = "Clean Orchestration Hub.")]
+        public bool CleanHub { get; set; }
 
         [Option('i', "instance-id",
             HelpText = "Instance id for new orchestration instance.")]

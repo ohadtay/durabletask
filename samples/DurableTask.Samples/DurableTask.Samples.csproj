@@ -10,7 +10,9 @@
   <ItemGroup>
     <PackageReference Include="CommandLineParser" version="1.9.71" />
     <PackageReference Include="EnterpriseLibrary.SemanticLogging" Version="2.0.1406.1" />
+    <PackageReference Include="Microsoft.Azure.DurableTask.Netherite" Version="1.2.0" />
     <PackageReference Include="Microsoft.Azure.Kusto.Data" Version="11.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
     <PackageReference Include="ncrontab" version="1.0.0" />
     <PackageReference Include="Newtonsoft.Json" version="13.0.2" />
   </ItemGroup>

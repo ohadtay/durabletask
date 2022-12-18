@@ -19,9 +19,11 @@ namespace DurableTask.Samples
     using System.Collections.Generic;
     using System.Configuration;
     using System.Threading.Tasks;
-    using DurableTask.AzureStorage;
     using DurableTask.Core;
+    using DurableTask.Netherite;
     using DurableTask.Samples.MonitoringTest;
+    using Kusto.Cloud.Platform.Utils;
+    using Microsoft.Extensions.Logging;
 
     internal class Program
     {
@@ -32,31 +34,32 @@ namespace DurableTask.Samples
         {
             if (CommandLine.Parser.Default.ParseArgumentsStrict(args, ArgumentOptions))
             {
-                string storageConnectionString = ConfigurationManager.AppSettings["StorageConnectionString"];
-                string taskHubName = ConfigurationManager.AppSettings["taskHubName"];
-
-                var settings = new AzureStorageOrchestrationServiceSettings
+                var settings = new NetheriteOrchestrationServiceSettings
                 {
-                    StorageAccountDetails = new StorageAccountDetails { ConnectionString = storageConnectionString },
-                    TaskHubName = taskHubName,
-                    MaxConcurrentTaskActivityWorkItems = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
-                    MaxConcurrentTaskOrchestrationWorkItems = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems,
-                    MaxQueuePollingInterval = TimeSpan.FromSeconds(10),
                     PartitionCount = ArgumentOptions.NumberOfPartition,
-                    ExtendedSessionsEnabled = true,
-                    ControlQueueBufferThreshold = 1000
+                    HubName = "MonitoringHub",
+                    StorageConnectionName = "StorageConnectionString",
+                    EventHubsConnectionName = "EventHubConnectionString"
                 };
+
+                settings.Validate(ConfigurationManager.AppSettings.Get);
+                
+                // ILoggerFactory loggerFactory = LoggerFactory.Create(builder =>
+                // {
+                //     builder.AddSimpleConsole(options => options.SingleLine = true);
+                // });
+                var loggerFactory = new LoggerFactory();
 
                 if (ArgumentOptions.ShouldSetUpWorkers)
                 {
-                    if (ArgumentOptions.CreateHub)
+                    var orchestrationService = new NetheriteOrchestrationService(settings, loggerFactory);
+                    if (ArgumentOptions.CleanHub)
                     {
-                        var orchestrationService = new AzureStorageOrchestrationService(settings);
                         try
                         {
                             Console.WriteLine("Deleting all storage information");
                             // Delete all Azure Storage tables, blobs, and queues in the task hub
-                            await orchestrationService.DeleteAsync();
+                            await ((IOrchestrationService)orchestrationService).DeleteAsync();
 
                             // Wait for a minute since Azure Storage won't let us immediately
                             // recreate resources with the same names as before.
@@ -67,31 +70,30 @@ namespace DurableTask.Samples
                         {
                             Console.WriteLine($"Could not delete the orchestration. Error message: {e.Message}");
                         }
-
-                        // I want to throw exception if we do not succeed
-                        await orchestrationService.CreateIfNotExistsAsync();
                     }
+                     
+                    await ((IOrchestrationService)orchestrationService).CreateIfNotExistsAsync();
 
-                    await WorkerMainTaskAsync(settings);
+                    await WorkerMainTaskAsync(settings, loggerFactory);
 
                     //Writing to the file will happen from the process of the worker
                     // UploadFileIntoBlob(storageConnectionString, filePath);
                 }
                 else
                 {
-                    await OrchestrationsTaskAsync(new AzureStorageOrchestrationService(settings));
+                    await OrchestrationsTaskAsync(new NetheriteOrchestrationService(settings, loggerFactory));
                 }
             }
         }
 
-        static async Task WorkerMainTaskAsync(AzureStorageOrchestrationServiceSettings settings)
+        static async Task WorkerMainTaskAsync(NetheriteOrchestrationServiceSettings settings, ILoggerFactory loggerFactory)
         {
             var workersList = new List<TaskHubWorker>(ArgumentOptions.NumberOfWorkers);
             var workersTasks = new List<Task>();
             for (var i = 0; i < ArgumentOptions.NumberOfWorkers; i++)
             {
                 //generating one instance of worker
-                var taskHubWorker = new TaskHubWorker(new AzureStorageOrchestrationService(settings));
+                var taskHubWorker = new TaskHubWorker(new NetheriteOrchestrationService(settings, loggerFactory));
 
                 taskHubWorker.AddTaskOrchestrations(
                     typeof(MonitoringOrchestration)
@@ -133,7 +135,7 @@ namespace DurableTask.Samples
             Console.WriteLine("Execution is over");
         }
 
-        static async Task OrchestrationsTaskAsync(AzureStorageOrchestrationService orchestrationServiceClient)
+        static async Task OrchestrationsTaskAsync(IOrchestrationServiceClient orchestrationServiceClient)
         {
             Console.WriteLine("Generating new orchestrations");
             Console.WriteLine("Press A for generating a new orchestration and D for delete one orchestration");
@@ -151,7 +153,7 @@ namespace DurableTask.Samples
                 if (input.Key == ConsoleKey.A)
                 {
                     await AddInstances(instances, taskHubClient);
-                    Console.WriteLine($"Total {instances?.Count} orchestrations");
+                    Console.WriteLine($"Total {instances.Count} orchestrations");
                 }
 
                 if (input.Key == ConsoleKey.D)
@@ -170,30 +172,40 @@ namespace DurableTask.Samples
             while (input.Key != ConsoleKey.Q);
 
             //terminating all the orchestrations
+            var terminatingTasks = new List<Task>();
             foreach (OrchestrationInstance instance in instances)
             {
-                await taskHubClient.TerminateInstanceAsync(instance);
+                terminatingTasks.Add(taskHubClient.TerminateInstanceAsync(instance));
                 Console.WriteLine($"Terminating instance: {instance.InstanceId}");
             }
+
+            await Task.WhenAll(terminatingTasks);
         }
 
         static async Task AddInstances(List<OrchestrationInstance> instances, TaskHubClient taskHubClient)
         {
             Console.WriteLine("Enter number of instances to add");
             string numberInstances = Console.ReadLine();
-            var rand = new Random();
 
+            var tasks = new List<Task<OrchestrationInstance>>();
             if (Int32.TryParse(numberInstances, out int numberOfInstancesToAdd) && numberOfInstancesToAdd > 0)
             {
                 for (var j = 0; j < numberOfInstancesToAdd; j++)
                 {
                     Console.WriteLine($"Adding orchestration {j + 1}/{numberOfInstancesToAdd}");
-                    int index = rand.Next(Hosts.Length);
+                    string host = Hosts[(instances.Count + j + 1) % Hosts.Length];
+                    
+                    tasks.Add(GenerateNewOrchestration(taskHubClient, host));
+                    if (j % 10 == 9)
+                    {
+                        OrchestrationInstance[] results = await Task.WhenAll(tasks);
+                        foreach (OrchestrationInstance instance in results)
+                        {
+                            instances.Add(instance);
+                        }
 
-                    string host = Hosts[index];
-
-                    instances.Add(GenerateNewOrchestration(taskHubClient, host));
-                    await Task.Delay(TimeSpan.FromMilliseconds(5));
+                        tasks.Clear();
+                    }
                 }
             }
         }
@@ -218,7 +230,7 @@ namespace DurableTask.Samples
             }
         }
 
-        static OrchestrationInstance GenerateNewOrchestration(TaskHubClient hubClient, string host)
+        static Task<OrchestrationInstance> GenerateNewOrchestration(TaskHubClient hubClient, string host)
         {
             string instanceId = ArgumentOptions.InstanceId ?? Guid.NewGuid().ToString();
             var monitoringInput = new MonitoringInput
@@ -230,7 +242,7 @@ namespace DurableTask.Samples
             Console.WriteLine($"GenerateNewOrchestration: Creating new orchestration. Instance id: {instanceId} for host {hostname}");
 
             //creating a new instance
-            OrchestrationInstance instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, monitoringInput).Result;
+            Task<OrchestrationInstance> instance = hubClient.CreateOrchestrationInstanceAsync(typeof(MonitoringOrchestration), instanceId, monitoringInput);
             Console.WriteLine($"GenerateNewOrchestration: InstanceId {instanceId} for host {hostname}, created with status {instance}");
             return instance;
         }
