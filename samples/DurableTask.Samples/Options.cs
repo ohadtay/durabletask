@@ -45,10 +45,6 @@ namespace DurableTask.Samples
         [Option('w', "start-worker", DefaultValue = false,
             HelpText = "Start workers")]
         public bool ShouldSetUpWorkers { get; set; }
-
-        [Option('p', "file-path", DefaultValue = "./logs.txt",
-            HelpText = "FilePath")]
-        public string FilePath { get; set; }
         
         [HelpOption]
         public string GetUsage()

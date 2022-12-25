@@ -215,17 +215,28 @@ namespace DurableTask.Samples
             Console.WriteLine("Enter number of instances to remove");
             string numberInstances = Console.ReadLine();
 
-            if (Int32.TryParse(numberInstances, out int numberOfInstancesToAdd) && numberOfInstancesToAdd > 0 && instances.Count - numberOfInstancesToAdd >= 0)
+            if (Int32.TryParse(numberInstances, out int instancesToRemove) && instancesToRemove > 0 && instances.Count - instancesToRemove >= 0)
             {
-                for (var j = 0; j < numberOfInstancesToAdd; j++)
+                var tasks = new List<Task>();
+                for (var j = 0; j < instancesToRemove; j++)
                 {
                     int randomNumber = random.Next(0, instances.Count);
                     OrchestrationInstance instanceToRemove = instances[randomNumber];
                     Console.WriteLine($"Removing orchestration instance randomly. OrchestrationId: {instanceToRemove.InstanceId}");
-                    await taskHubClient.SuspendInstanceAsync(instanceToRemove);
-                    await taskHubClient.TerminateInstanceAsync(instanceToRemove);
+                    //remove suspend
+                    tasks.Add(taskHubClient.TerminateInstanceAsync(instanceToRemove));
                     instances.RemoveAt(randomNumber);
                     Console.WriteLine($"Removed orchestration instance: {instanceToRemove.InstanceId} successfully");
+                    if (j % 9 == 0)
+                    {
+                        await Task.WhenAll(tasks);
+                        tasks.Clear();
+                    }
+                }
+
+                if (tasks.Count > 0)
+                {
+                    await Task.WhenAll(tasks);
                 }
             }
         }
@@ -396,7 +407,6 @@ namespace DurableTask.Samples
             "https://ingest-elberytest.westeurope.dev.kusto.windows.net",
             "https://ingest-yifatsweur.westeurope.dev.kusto.windows.net",
             "https://ingest-yifatsweurope.westeurope.dev.kusto.windows.net",
-            "https://ingest-sgitelman.westeurope.dev.kusto.windows.net",
             "https://ingest-kustomdperf.westeurope.dev.kusto.windows.net",
             "https://ingest-hafeldba1.westeurope.dev.kusto.windows.net",
             "https://ingest-lugoldbeforyoni.westeurope.dev.kusto.windows.net",

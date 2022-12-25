@@ -7,6 +7,7 @@ namespace DurableTask.Samples.MonitoringTest
     using System;
     using System.Data;
     using System.Security.Cryptography.X509Certificates;
+    using System.Threading;
     using System.Threading.Tasks;
     using DurableTask.Core;
     using Kusto.Cloud.Platform.Security;
@@ -24,19 +25,21 @@ namespace DurableTask.Samples.MonitoringTest
     public sealed class MonitoringOutput
     {
         public DateTime TaskExecutionFinishTime;
-        public DateTime ScheduledTime;
         public bool Success;
     }
 
     public sealed class MonitoringTask : AsyncTaskActivity<MonitoringInput, MonitoringOutput>
     {
-        static readonly X509Certificate2 cert = CertificateUtilities.TryLoadCertificate(StoreLocation.CurrentUser, StoreName.My, X509FindType.FindByThumbprint, "D3EA9FD63C04E268861CD8A8831BD103FFFD04FD", true);
+        static readonly X509Certificate2 cert = CertificateUtilities.TryLoadCertificate(StoreLocation.LocalMachine, StoreName.My, X509FindType.FindBySubjectName, "kusto-KustoClusterManagement.dev.kusto.windows.net", true);
 
         protected override async Task<MonitoringOutput> ExecuteAsync(TaskContext context, MonitoringInput monitoringInput)
         {
             var result = true;
+            var cts = new CancellationTokenSource();
+
             try
             {
+                cts.CancelAfter(TimeSpan.FromSeconds(5));
                 KustoConnectionStringBuilder kcsb = new KustoConnectionStringBuilder(monitoringInput.Host + ";Fed=True")
                     .WithAadApplicationCertificateAuthentication(
                         "77daa54b-ea23-4f3a-8836-f644ddf9dab7",
@@ -45,23 +48,20 @@ namespace DurableTask.Samples.MonitoringTest
                         true);
                 using ICslAdminProvider client = KustoClientFactory.CreateCslAdminProvider(kcsb);
                 using IDataReader reader = await client.ExecuteControlCommandAsync("", ".show version");
-
-                // while (reader.Read())
-                // {
-                //     Console.WriteLine("\t{0}={1}", monitoringInput.Host, reader.GetString(0));
-                // }
             }
             catch
-            {
+            { 
                 result = false;
-                // Console.WriteLine("\t\t" + ex.Message);
                 // ignored
+            }
+            finally
+            {
+                cts.Dispose();
             }
 
             return new MonitoringOutput
             {
                 TaskExecutionFinishTime = DateTime.UtcNow,
-                ScheduledTime = monitoringInput.ScheduledTime,
                 Success = result
             };
         }
