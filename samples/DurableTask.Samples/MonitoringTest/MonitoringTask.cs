@@ -39,7 +39,7 @@ namespace DurableTask.Samples.MonitoringTest
 
             try
             {
-                cts.CancelAfter(TimeSpan.FromSeconds(5));
+                cts.CancelAfter(TimeSpan.FromSeconds(30));
                 KustoConnectionStringBuilder kcsb = new KustoConnectionStringBuilder(monitoringInput.Host + ";Fed=True")
                     .WithAadApplicationCertificateAuthentication(
                         "77daa54b-ea23-4f3a-8836-f644ddf9dab7",
