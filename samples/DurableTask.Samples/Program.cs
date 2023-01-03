@@ -37,6 +37,8 @@ namespace DurableTask.Samples
                 {
                     PartitionCount = ArgumentOptions.NumberOfPartition,
                     HubName = "MonitoringHub",
+                    MaxConcurrentOrchestratorFunctions = ArgumentOptions.MaxConcurrentTaskOrchestrationWorkItems,
+                    MaxConcurrentActivityFunctions = ArgumentOptions.MaxConcurrentTaskActivityWorkItems,
                     StorageConnectionName = "StorageConnectionString",
                     EventHubsConnectionName = "EventHubConnectionString"
                 };
