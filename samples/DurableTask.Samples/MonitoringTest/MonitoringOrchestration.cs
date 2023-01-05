@@ -18,7 +18,6 @@ namespace DurableTask.Samples.MonitoringTest
 
         public override async Task<string> RunTask(OrchestrationContext context, MonitoringInput input)
         {
-            var consoleColor = ConsoleColor.Green;
             DateTime nextIterationScheduleTime = context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1));
 
             try
@@ -38,14 +37,14 @@ namespace DurableTask.Samples.MonitoringTest
                 {
                     if (context.CurrentUtcDateTime - input.ScheduledTime >= TimeSpan.FromMinutes(1))
                     {
-                        consoleColor = ConsoleColor.Red;
+                        var consoleColor = ConsoleColor.Red;
                         ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result},  failureType: execution");
                         Interlocked.Increment(ref failureOrchestrationCounter);
                         throw new Exception($"Error!");
                     }
                 }
 
-                var timeBeforeTimer = context.CurrentUtcDateTime;
+                DateTime timeBeforeTimer = context.CurrentUtcDateTime;
                 nextIterationScheduleTime = context.CurrentUtcDateTime.Add(TimeSpan.FromMinutes(1) - (timeBeforeTimer - input.ScheduledTime));
                 await context.CreateTimer(nextIterationScheduleTime, context.OrchestrationInstance.InstanceId);
                 
@@ -53,13 +52,13 @@ namespace DurableTask.Samples.MonitoringTest
                 {
                     if (context.CurrentUtcDateTime - nextIterationScheduleTime > TimeSpan.FromSeconds(3))
                     {
-                        consoleColor = ConsoleColor.Yellow;
-                        ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result}, failureType: timer");
+                        //consoleColor = ConsoleColor.Yellow;
+                        //ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result}, failureType: timer");
                         Interlocked.Increment(ref failureTimerCounter);
                         throw new Exception($"Error!");
                     }
                     
-                    ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result}");
+                    //ExtendedConsole.WriteLine(consoleColor, $"Execution {hostname,-30} timing: Orc total: {context.CurrentUtcDateTime - input.ScheduledTime}, Task execution: {showVersionOutput.TaskExecutionFinishTime - input.ScheduledTime}, {result}");
                 }
             }
             catch (Exception)
